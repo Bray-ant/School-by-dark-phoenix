@@ -1,10 +1,5 @@
 import "dotenv/config";
 
-console.log("[env] NODE_ENV:", process.env.NODE_ENV);
-console.log("[env] available keys:", Object.keys(process.env).sort().join(", "));
-console.log("[env] DATABASE_URL length:", process.env.DATABASE_URL?.length ?? 0);
-console.log("[env] SESSION_SECRET length:", process.env.SESSION_SECRET?.length ?? 0);
-
 function required(name: string): string {
   const value = process.env[name];
   if (!value && process.env.NODE_ENV === "production") {
