@@ -1,6 +1,11 @@
 import mysql from 'mysql2/promise';
+import 'dotenv/config';
 
-const connectionString = 'mysql://6Bb4xj3j2ZWARPs.root:HwoTsDdJ28woFXIZ@gateway01.eu-central-1.prod.aws.tidbcloud.com:4000/forceform_learn?ssl={"rejectUnauthorized":true}';
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('Missing DATABASE_URL environment variable');
+  process.exit(1);
+}
 
 const conn = await mysql.createConnection(connectionString);
 

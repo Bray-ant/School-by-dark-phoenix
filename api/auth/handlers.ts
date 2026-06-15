@@ -1,6 +1,8 @@
 import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
 import * as cookie from "cookie";
+import { randomBytes } from "node:crypto";
+import bcrypt from "bcryptjs";
 import { getSessionCookieOptions } from "../lib/cookies";
 import { Session } from "@contracts/constants";
 import { signSessionToken, verifySessionToken } from "./session";
@@ -31,6 +33,8 @@ function recordActivity(
     .catch(() => { /* non-critical */ });
 }
 
+const BCRYPT_ROUNDS = 12;
+
 export function createLoginHandler() {
   return async (c: Context) => {
     if (c.req.method !== "POST") {
@@ -39,9 +43,9 @@ export function createLoginHandler() {
 
     const body = await c.req.json<{ email?: string; passwordHash?: string }>();
     const email = body.email?.toLowerCase().trim();
-    const passwordHash = body.passwordHash;
+    const clientHash = body.passwordHash;
 
-    if (!email || !passwordHash) {
+    if (!email || !clientHash) {
       return c.json({ error: "Email and password are required" }, 400);
     }
 
@@ -52,7 +56,13 @@ export function createLoginHandler() {
       .where(eq(users.email, email))
       .limit(1);
 
-    if (!user || user.passwordHash !== passwordHash) {
+    if (!user) {
+      recordActivity(c, { email, action: "LOGIN", success: false, details: "Invalid credentials" });
+      return c.json({ error: "Invalid email or password" }, 401);
+    }
+
+    const passwordValid = await bcrypt.compare(clientHash, user.passwordHash);
+    if (!passwordValid) {
       recordActivity(c, { email, action: "LOGIN", success: false, details: "Invalid credentials" });
       return c.json({ error: "Invalid email or password" }, 401);
     }
@@ -110,10 +120,12 @@ export function createRegisterHandler() {
       return c.json({ error: "Username already taken" }, 409);
     }
 
+    const serverHash = await bcrypt.hash(passwordHash, BCRYPT_ROUNDS);
+
     const [result] = await db.insert(users).values({
       username,
       email,
-      passwordHash,
+      passwordHash: serverHash,
       name: username,
       role: "user",
     });
@@ -198,7 +210,7 @@ export function createForgotPasswordHandler() {
       return c.json({ success: true });
     }
 
-    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
     await db.insert(passwordResetTokens).values({
@@ -207,7 +219,8 @@ export function createForgotPasswordHandler() {
       expiresAt,
     });
 
-    return c.json({ success: true, token });
+    // Never return the token in the response — it should only be sent via email.
+    return c.json({ success: true });
   };
 }
 
@@ -247,9 +260,11 @@ export function createResetPasswordHandler() {
       return c.json({ error: "This account is protected" }, 403);
     }
 
+    const serverHash = await bcrypt.hash(passwordHash, BCRYPT_ROUNDS);
+
     await db
       .update(users)
-      .set({ passwordHash })
+      .set({ passwordHash: serverHash })
       .where(eq(users.email, record.email));
 
     await db
@@ -300,11 +315,13 @@ export function createChangePasswordHandler() {
       return c.json({ error: "User not found" }, 404);
     }
 
-    if (user.passwordHash !== currentPasswordHash) {
+    const currentValid = await bcrypt.compare(currentPasswordHash, user.passwordHash);
+    if (!currentValid) {
       return c.json({ error: "Current password is incorrect" }, 401);
     }
 
-    await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
+    const newServerHash = await bcrypt.hash(newPasswordHash, BCRYPT_ROUNDS);
+    await db.update(users).set({ passwordHash: newServerHash }).where(eq(users.id, userId));
 
     return c.json({ success: true });
   };
