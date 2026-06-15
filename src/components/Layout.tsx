@@ -21,8 +21,11 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#060606] text-[#f6f6f6] blueprint-grid flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[#3b82f6] focus:text-white focus:rounded-lg focus:text-sm">
+        Skip to content
+      </a>
       <Navigation />
-      <main className={`flex-1 ${isFullScreenPage ? '' : 'pt-16'}`}>
+      <main id="main-content" className={`flex-1 ${isFullScreenPage ? '' : 'pt-16'}`} role="main">
         {children}
       </main>
 
