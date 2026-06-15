@@ -134,6 +134,23 @@ export const passwordResetTokens = mysqlTable("password_reset_tokens", {
 });
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
+// Login/logout activity log
+export const loginActivity = mysqlTable("login_activity", {
+  id: serial("id").primaryKey(),
+  userId: bigint("userId", { mode: "number", unsigned: true }),
+  username: varchar("username", { length: 30 }),
+  email: varchar("email", { length: 320 }),
+  action: varchar("action", { length: 20 }).notNull(), // 'LOGIN' | 'LOGOUT' | 'REGISTER'
+  success: tinyint("success", { unsigned: true }).default(1).notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: varchar("userAgent", { length: 500 }),
+  details: varchar("details", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type LoginActivity = typeof loginActivity.$inferSelect;
+
 //
 // Example:
 // export const posts = mysqlTable("posts", {
