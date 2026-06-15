@@ -1,7 +1,7 @@
 {
-  "name": "ForceForm Learn",
-  "short_name": "ForceForm",
-  "description": "Engineering education platform with DC Circuit Analysis, interactive simulators, and AI tutoring",
+  "name": "School by Dark Phoenix",
+  "short_name": "Dark Phoenix",
+  "description": "School by Dark Phoenix — Engineering education platform with DC Circuit Analysis, interactive simulators, and AI tutoring.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060606",
