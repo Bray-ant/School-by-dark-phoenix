@@ -85,8 +85,8 @@ export const chatRouter = createRouter({
               { role: "user", content: input.content },
             ], { temperature: 0.8, max_tokens: 1024 });
             usedKimi = true;
-          } catch {
-            // Fall through to local
+          } catch (err) {
+            console.error("[askAi] Kimi chat API failed, falling back to local response:", err);
           }
         }
       }

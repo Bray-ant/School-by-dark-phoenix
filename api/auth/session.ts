@@ -32,7 +32,8 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     const userId = payload.userId;
     if (!userId || typeof userId !== "number") return null;
     return { userId };
-  } catch {
+  } catch (err) {
+    console.warn("[verifySessionToken] token verification failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }

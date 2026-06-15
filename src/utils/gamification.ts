@@ -97,7 +97,7 @@ export function loadStats(): UserStats {
   try {
     const saved = localStorage.getItem(XP_KEY);
     if (saved) return { ...getDefaultStats(), ...JSON.parse(saved) };
-  } catch { /* ignore */ }
+  } catch (err) { console.warn('[gamification] failed to load XP stats:', err); }
   return getDefaultStats();
 }
 
