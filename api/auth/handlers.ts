@@ -64,16 +64,24 @@ export function createLoginHandler() {
         return c.json({ error: "Invalid email or password" }, 401);
       }
 
-      const passwordValid = await bcrypt.compare(clientHash, user.passwordHash);
+      const isBcryptHash = user.passwordHash.startsWith("$2");
+      const passwordValid = isBcryptHash
+        ? await bcrypt.compare(clientHash, user.passwordHash)
+        : clientHash === user.passwordHash;
+
       if (!passwordValid) {
         recordActivity(c, { email, action: "LOGIN", success: false, details: "Invalid credentials" });
         return c.json({ error: "Invalid email or password" }, 401);
       }
 
-      // Update last sign in
+      // Migrate legacy SHA-256 hash to bcrypt on successful login
+      const newHash = isBcryptHash
+        ? undefined
+        : await bcrypt.hash(clientHash, BCRYPT_ROUNDS);
+
       await db
         .update(users)
-        .set({ lastSignInAt: new Date() })
+        .set({ lastSignInAt: new Date(), ...(newHash ? { passwordHash: newHash } : {}) })
         .where(eq(users.id, user.id));
 
       const token = await signSessionToken({ userId: user.id });
