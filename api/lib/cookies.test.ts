@@ -28,6 +28,18 @@ describe("getSessionCookieOptions", () => {
     expect(opts.path).toBe("/");
   });
 
+  it("treats localhost without port as non-local (isLocalhost requires trailing colon)", () => {
+    const opts = getSessionCookieOptions(headersWithHost("localhost"));
+    expect(opts.sameSite).toBe("None");
+    expect(opts.secure).toBe(true);
+  });
+
+  it("treats 127.0.0.1 without port as non-local", () => {
+    const opts = getSessionCookieOptions(headersWithHost("127.0.0.1"));
+    expect(opts.sameSite).toBe("None");
+    expect(opts.secure).toBe(true);
+  });
+
   it("returns None sameSite when host header is missing", () => {
     const opts = getSessionCookieOptions(new Headers());
     expect(opts.sameSite).toBe("None");
