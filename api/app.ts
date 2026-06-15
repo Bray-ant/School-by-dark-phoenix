@@ -9,6 +9,7 @@ import {
   createLogoutHandler,
   createForgotPasswordHandler,
   createResetPasswordHandler,
+  createChangePasswordHandler,
 } from "./auth/handlers";
 
 const app = new Hono();
@@ -19,6 +20,7 @@ app.post("/api/auth/register", createRegisterHandler());
 app.post("/api/auth/logout", createLogoutHandler());
 app.post("/api/auth/forgot-password", createForgotPasswordHandler());
 app.post("/api/auth/reset-password", createResetPasswordHandler());
+app.post("/api/auth/change-password", createChangePasswordHandler());
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",

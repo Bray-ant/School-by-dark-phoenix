@@ -7,6 +7,7 @@ import { signSessionToken, verifySessionToken } from "./session";
 import { getDb } from "../queries/connection";
 import { users, passwordResetTokens, loginActivity } from "@db/schema";
 import { eq, and, gt } from "drizzle-orm";
+const PROTECTED_ADMIN_EMAIL = "hohenheimvon01@gmail.com";
 
 function recordActivity(
   c: Context,
@@ -185,6 +186,11 @@ export function createForgotPasswordHandler() {
       return c.json({ error: "Email is required" }, 400);
     }
 
+    // Protected admin cannot have password reset by others
+    if (email === PROTECTED_ADMIN_EMAIL) {
+      return c.json({ success: true }); // Silent rejection — don't reveal protection
+    }
+
     const db = getDb();
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (!user) {
@@ -236,6 +242,11 @@ export function createResetPasswordHandler() {
       return c.json({ error: "Invalid or expired reset token" }, 400);
     }
 
+    // Protected admin cannot have password reset via token flow
+    if (record.email === PROTECTED_ADMIN_EMAIL) {
+      return c.json({ error: "This account is protected" }, 403);
+    }
+
     await db
       .update(users)
       .set({ passwordHash })
@@ -245,6 +256,55 @@ export function createResetPasswordHandler() {
       .update(passwordResetTokens)
       .set({ used: 1 })
       .where(eq(passwordResetTokens.id, record.id));
+
+    return c.json({ success: true });
+  };
+}
+
+/**
+ * Self-service password change for the protected admin.
+ * Requires current password + new password.
+ */
+export function createChangePasswordHandler() {
+  return async (c: Context) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+
+    // Verify caller is authenticated
+    let userId: number | undefined;
+    try {
+      const cookies = cookie.parse(c.req.header("cookie") || "");
+      const sessionToken = cookies[Session.cookieName];
+      if (sessionToken) {
+        const claim = await verifySessionToken(sessionToken);
+        if (claim) userId = claim.userId;
+      }
+    } catch { /* no auth */ }
+
+    if (!userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const body = await c.req.json<{ currentPasswordHash?: string; newPasswordHash?: string }>();
+    const { currentPasswordHash, newPasswordHash } = body;
+
+    if (!currentPasswordHash || !newPasswordHash) {
+      return c.json({ error: "Current and new password are required" }, 400);
+    }
+
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    if (user.passwordHash !== currentPasswordHash) {
+      return c.json({ error: "Current password is incorrect" }, 401);
+    }
+
+    await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
 
     return c.json({ success: true });
   };
