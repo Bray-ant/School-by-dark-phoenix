@@ -29,7 +29,8 @@ export async function callKimiWithFallback(
       ],
       { temperature: options?.temperature ?? 0.7, max_tokens: options?.max_tokens ?? 2048 }
     );
-  } catch {
+  } catch (err) {
+    console.error("[callKimiWithFallback] Kimi API call failed, using fallback:", err);
     return fallback();
   }
 }
@@ -92,7 +93,8 @@ export async function handleTutorMessage(opts: {
         temperature: 0.7,
         max_tokens: 2048,
       });
-    } catch {
+    } catch (err) {
+      console.error("[handleTutorMessage] Kimi API call failed, using local fallback:", err);
       response = opts.localFallback(opts.message)
         + (opts.fallbackSuffix ?? "\n\n*(Kimi API temporarily unavailable — using built-in knowledge base)*");
     }

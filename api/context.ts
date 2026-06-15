@@ -15,15 +15,14 @@ export type TrpcContext = {
 };
 
 function touchLastActive(userId: number) {
-  try {
-    getDb()
-      .update(users)
-      .set({ lastActiveAt: new Date() })
-      .where(eq(users.id, userId))
-      .execute();
-  } catch {
-    // Non-critical: don't block the request
-  }
+  getDb()
+    .update(users)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(users.id, userId))
+    .execute()
+    .catch((err) => {
+      console.error("[touchLastActive] failed to update lastActiveAt:", err);
+    });
 }
 
 export async function createContext(
@@ -42,8 +41,8 @@ export async function createContext(
         }
       }
     }
-  } catch {
-    // Authentication is optional here
+  } catch (err) {
+    console.error("[createContext] session resolution failed:", err);
   }
   return ctx;
 }

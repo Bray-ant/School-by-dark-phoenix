@@ -126,8 +126,8 @@ export default function ChatRoom() {
           roomId: selectedRoom,
           content,
         });
-      } catch {
-        // Error handled in mutation onError
+      } catch (err) {
+        console.error('[ChatRoom] AI request failed:', err);
       }
     }
   };

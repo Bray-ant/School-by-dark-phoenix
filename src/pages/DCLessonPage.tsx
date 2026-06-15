@@ -66,8 +66,8 @@ export default function DCLessonPage() {
           chapterType: 'dc-circuit',
           timeSpentSeconds: 300,
         });
-      } catch {
-        // Silently fail - local progress is already saved
+      } catch (err) {
+        console.warn('[DCLessonPage] failed to sync lesson progress to server:', err);
       }
     }
   };

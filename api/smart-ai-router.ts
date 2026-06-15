@@ -119,7 +119,8 @@ async function callKimiWithFallback(
       ],
       { temperature: options?.temperature ?? 0.7, max_tokens: options?.max_tokens ?? 2048 }
     );
-  } catch {
+  } catch (err) {
+    console.error("[callKimiWithFallback] Kimi API call failed, using fallback:", err);
     return fallback();
   }
 }
@@ -322,7 +323,8 @@ export const smartAiRouter = createRouter({
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         const quiz = jsonMatch ? JSON.parse(jsonMatch[0]) : fallback();
         return { quiz, source: "kimi" };
-      } catch {
+      } catch (err) {
+        console.error("[generateQuiz] Kimi quiz generation failed, using fallback:", err);
         return { quiz: fallback(), source: "local" };
       }
     }),
@@ -394,7 +396,8 @@ export const smartAiRouter = createRouter({
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         const plan = jsonMatch ? JSON.parse(jsonMatch[0]) : fallback();
         return { plan, source: "kimi" };
-      } catch {
+      } catch (err) {
+        console.error("[generateStudyPlan] Kimi study plan generation failed, using fallback:", err);
         return { plan: fallback(), source: "local" };
       }
     }),
