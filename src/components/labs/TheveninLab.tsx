@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers } from 'lucide-react';
+import { LabLayout, LabControls } from './shared';
+import type { SliderConfig } from './shared';
 
 export default function TheveninLab({ showInfo: _showInfo }: { showInfo?: boolean }) {
   const [vSource, setVSource] = useState(12);
@@ -34,30 +36,19 @@ export default function TheveninLab({ showInfo: _showInfo }: { showInfo?: boolea
     { title: 'Load Analysis', desc: 'Attach load, verify equivalence' },
   ];
 
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="text-center">
-          <h2 className="text-lg font-bold mb-1">Thevenin & Norton Laboratory</h2>
-          <p className="text-xs text-[#737373]">Replace any linear network with equivalent V_th + R_th or I_n // R_n</p>
-        </div>
+  const sliders: SliderConfig[] = [
+    { label: 'V_source', value: vSource, setter: setVSource, min: 1, max: 30, color: '#06b6d4', unit: 'V', format: v => String(v) },
+    { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
+    { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
+    { label: 'R_load', value: rLoad, setter: setRLload, min: 100, max: 10000, color: '#10b981' },
+  ];
 
-        <div className="glass-panel rounded-xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'V_source', value: vSource, setter: setVSource, min: 1, max: 30 },
-              { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000 },
-              { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000 },
-              { label: 'R_load', value: rLoad, setter: setRLload, min: 100, max: 10000 },
-            ].map(c => (
-              <div key={c.label}>
-                <label className="text-[10px] text-[#737373] mb-1 block">{c.label}</label>
-                <input type="range" min={c.min} max={c.max} value={c.value} onChange={e => c.setter(Number(e.target.value))} className="w-full accent-[#06b6d4]" />
-                <span className="text-xs font-mono">{c.label === 'V_source' ? `${c.value} V` : `${(c.value / 1000).toFixed(1)} kΩ`}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+  return (
+    <LabLayout
+      title="Thevenin & Norton Laboratory"
+      subtitle="Replace any linear network with equivalent V_th + R_th or I_n // R_n"
+    >
+      <LabControls sliders={sliders} columns="grid-cols-2 md:grid-cols-4" accentColor="#06b6d4" />
 
         {/* Step navigation */}
         <div className="flex gap-1 overflow-x-auto p-1 bg-white/5 rounded-xl">
@@ -235,7 +226,6 @@ export default function TheveninLab({ showInfo: _showInfo }: { showInfo?: boolea
             </div>
           </motion.div>
         </AnimatePresence>
-      </div>
-    </div>
+    </LabLayout>
   );
 }

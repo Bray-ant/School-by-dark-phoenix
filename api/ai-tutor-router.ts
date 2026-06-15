@@ -3,11 +3,8 @@ import { createRouter, authedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { aiConversations, aiMessages } from "@db/schema";
 import { eq, desc, asc } from "drizzle-orm";
-import {
-  getUserAccessToken,
-  callKimiChat,
-  DC_TUTOR_SYSTEM_PROMPT,
-} from "./kimi/chat";
+import { DC_TUTOR_SYSTEM_PROMPT } from "./kimi/chat";
+import { handleTutorMessage } from "./lib/ai-helpers";
 import { TRPCError } from "@trpc/server";
 
 // Fallback knowledge base for unauthenticated users
@@ -199,50 +196,13 @@ export const aiTutorRouter = createRouter({
   quickChat: authedQuery
     .input(z.object({ message: z.string().min(1).max(4000), conversationId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const db = getDb();
-      let convId = input.conversationId;
-      if (!convId) {
-        const [conv] = await db.insert(aiConversations).values({
-          userId: ctx.user.id,
-          title: input.message.slice(0, 60) + (input.message.length > 60 ? "..." : ""),
-        }).$returningId();
-        convId = conv.id;
-      }
-      // Verify ownership
-      const [conv] = await db.select().from(aiConversations).where(eq(aiConversations.id, convId)).limit(1);
-      if (!conv || conv.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Not your conversation" });
-
-      // Save user message
-      await db.insert(aiMessages).values({ conversationId: convId, role: "user", content: input.message });
-
-      // Get access token
-      const accessToken = await getUserAccessToken(ctx.user.id);
-
-      let response: string;
-
-      if (accessToken) {
-        // Use real Kimi API
-        const history = await db.select().from(aiMessages).where(eq(aiMessages.conversationId, convId)).orderBy(desc(aiMessages.createdAt)).limit(20);
-        const messages = [
-          { role: "system" as const, content: DC_TUTOR_SYSTEM_PROMPT },
-          ...history.reverse().map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-        ];
-        try {
-          response = await callKimiChat(accessToken, messages, { temperature: 0.7, max_tokens: 2048 });
-        } catch {
-          response = generateLocalResponse(input.message) + "\n\n*(Kimi API unavailable -- using local knowledge base)*";
-        }
-      } else {
-        // Fallback to local knowledge base
-        response = generateLocalResponse(input.message) + "\n\n*(Sign out and sign back in to enable enhanced Kimi AI responses)*";
-      }
-
-      // Save AI response
-      const [aiMsg] = await db.insert(aiMessages).values({
-        conversationId: convId, role: "assistant", content: response,
-      }).$returningId();
-      const [inserted] = await db.select().from(aiMessages).where(eq(aiMessages.id, aiMsg.id)).limit(1);
-
-      return { conversationId: convId, response: inserted };
+      return handleTutorMessage({
+        userId: ctx.user.id,
+        message: input.message,
+        conversationId: input.conversationId,
+        titlePrefix: "",
+        systemPrompt: DC_TUTOR_SYSTEM_PROMPT,
+        localFallback: generateLocalResponse,
+      });
     }),
 });
