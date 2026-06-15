@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://school-by-dark-phoenix.onrender.com/sitemap.xml
