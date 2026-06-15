@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../App';
 import { getTotalLessons, getCompletedLessons, quizzes } from '../data/courseData';
 import Heatmap from '../components/Heatmap';
-import { Box, Orbit, Zap, TrendingUp, CheckCircle, Award, Target, Clock, Flame, ArrowRight, Trophy, Timer, Download, Users } from 'lucide-react';
+import { Box, Orbit, Zap, TrendingUp, CheckCircle, Award, Target, Clock, Flame, ArrowRight, Trophy, Timer, Download, Users, Activity } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { exportAuditLogs } from '../utils/security';
 import { motion } from 'framer-motion';
@@ -108,14 +108,24 @@ export default function Dashboard() {
                 <Download className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
               {user?.role === 'admin' && (
-                <Link to="/admin/users" className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
-                  <Users className="w-4 h-4 text-[#8b5cf6]" />
-                  <div>
-                    <div className="text-xs font-medium">Manage Users</div>
-                    <div className="text-[10px] text-[#737373]">View registered users & activity</div>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
+                <>
+                  <Link to="/admin/users" className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                    <Users className="w-4 h-4 text-[#8b5cf6]" />
+                    <div>
+                      <div className="text-xs font-medium">Manage Users</div>
+                      <div className="text-[10px] text-[#737373]">View registered users & activity</div>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
+                  <Link to="/admin/activity" className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                    <Activity className="w-4 h-4 text-[#10b981]" />
+                    <div>
+                      <div className="text-xs font-medium">Login Activity</div>
+                      <div className="text-[10px] text-[#737373]">Track all login & logout events</div>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
+                </>
               )}
             </div>
           </motion.div>

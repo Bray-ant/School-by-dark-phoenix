@@ -3,10 +3,33 @@ import { setCookie } from "hono/cookie";
 import * as cookie from "cookie";
 import { getSessionCookieOptions } from "../lib/cookies";
 import { Session } from "@contracts/constants";
-import { signSessionToken } from "./session";
+import { signSessionToken, verifySessionToken } from "./session";
 import { getDb } from "../queries/connection";
-import { users, passwordResetTokens } from "@db/schema";
+import { users, passwordResetTokens, loginActivity } from "@db/schema";
 import { eq, and, gt } from "drizzle-orm";
+const PROTECTED_ADMIN_EMAIL = "hohenheimvon01@gmail.com";
+
+function recordActivity(
+  c: Context,
+  opts: { userId?: number; username?: string; email?: string; action: string; success: boolean; details?: string },
+) {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "unknown";
+  const userAgent = c.req.header("user-agent")?.slice(0, 500) || null;
+  const db = getDb();
+  db.insert(loginActivity)
+    .values({
+      userId: opts.userId ?? null,
+      username: opts.username ?? null,
+      email: opts.email ?? null,
+      action: opts.action,
+      success: opts.success ? 1 : 0,
+      ipAddress: ip,
+      userAgent,
+      details: opts.details ?? null,
+    })
+    .execute()
+    .catch(() => { /* non-critical */ });
+}
 
 export function createLoginHandler() {
   return async (c: Context) => {
@@ -30,6 +53,7 @@ export function createLoginHandler() {
       .limit(1);
 
     if (!user || user.passwordHash !== passwordHash) {
+      recordActivity(c, { email, action: "LOGIN", success: false, details: "Invalid credentials" });
       return c.json({ error: "Invalid email or password" }, 401);
     }
 
@@ -46,6 +70,7 @@ export function createLoginHandler() {
       maxAge: Session.maxAgeMs / 1000,
     });
 
+    recordActivity(c, { userId: user.id, username: user.username, email: user.email, action: "LOGIN", success: true });
     return c.json({ success: true, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   };
 }
@@ -101,6 +126,7 @@ export function createRegisterHandler() {
       maxAge: Session.maxAgeMs / 1000,
     });
 
+    recordActivity(c, { userId, username, email, action: "REGISTER", success: true });
     return c.json({ success: true, user: { id: userId, username, email, role: "user" } });
   };
 }
@@ -111,6 +137,21 @@ export function createLogoutHandler() {
       return c.json({ error: "Method not allowed" }, 405);
     }
 
+    // Identify user before clearing session
+    let logUser: { id: number; username: string; email: string } | undefined;
+    try {
+      const cookies = cookie.parse(c.req.header("cookie") || "");
+      const sessionToken = cookies[Session.cookieName];
+      if (sessionToken) {
+        const claim = await verifySessionToken(sessionToken);
+        if (claim) {
+          const db = getDb();
+          const [u] = await db.select().from(users).where(eq(users.id, claim.userId)).limit(1);
+          if (u) logUser = { id: u.id, username: u.username, email: u.email };
+        }
+      }
+    } catch { /* proceed with logout */ }
+
     const opts = getSessionCookieOptions(c.req.raw.headers);
     const serialized = cookie.serialize(Session.cookieName, "", {
       httpOnly: opts.httpOnly,
@@ -120,6 +161,14 @@ export function createLogoutHandler() {
       maxAge: 0,
     });
     c.res.headers.append("set-cookie", serialized);
+
+    recordActivity(c, {
+      userId: logUser?.id,
+      username: logUser?.username,
+      email: logUser?.email,
+      action: "LOGOUT",
+      success: true,
+    });
 
     return c.json({ success: true });
   };
@@ -135,6 +184,11 @@ export function createForgotPasswordHandler() {
     const email = body.email?.toLowerCase().trim();
     if (!email) {
       return c.json({ error: "Email is required" }, 400);
+    }
+
+    // Protected admin cannot have password reset by others
+    if (email === PROTECTED_ADMIN_EMAIL) {
+      return c.json({ success: true }); // Silent rejection — don't reveal protection
     }
 
     const db = getDb();
@@ -188,6 +242,11 @@ export function createResetPasswordHandler() {
       return c.json({ error: "Invalid or expired reset token" }, 400);
     }
 
+    // Protected admin cannot have password reset via token flow
+    if (record.email === PROTECTED_ADMIN_EMAIL) {
+      return c.json({ error: "This account is protected" }, 403);
+    }
+
     await db
       .update(users)
       .set({ passwordHash })
@@ -197,6 +256,55 @@ export function createResetPasswordHandler() {
       .update(passwordResetTokens)
       .set({ used: 1 })
       .where(eq(passwordResetTokens.id, record.id));
+
+    return c.json({ success: true });
+  };
+}
+
+/**
+ * Self-service password change for the protected admin.
+ * Requires current password + new password.
+ */
+export function createChangePasswordHandler() {
+  return async (c: Context) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+
+    // Verify caller is authenticated
+    let userId: number | undefined;
+    try {
+      const cookies = cookie.parse(c.req.header("cookie") || "");
+      const sessionToken = cookies[Session.cookieName];
+      if (sessionToken) {
+        const claim = await verifySessionToken(sessionToken);
+        if (claim) userId = claim.userId;
+      }
+    } catch { /* no auth */ }
+
+    if (!userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const body = await c.req.json<{ currentPasswordHash?: string; newPasswordHash?: string }>();
+    const { currentPasswordHash, newPasswordHash } = body;
+
+    if (!currentPasswordHash || !newPasswordHash) {
+      return c.json({ error: "Current and new password are required" }, 400);
+    }
+
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    if (user.passwordHash !== currentPasswordHash) {
+      return c.json({ error: "Current password is incorrect" }, 401);
+    }
+
+    await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
 
     return c.json({ success: true });
   };

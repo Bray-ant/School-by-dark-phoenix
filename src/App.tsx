@@ -36,6 +36,7 @@ import LorenzFlight from './pages/games/LorenzFlight'
 import BalanceBeam from './pages/games/BalanceBeam'
 import AuthPage from "./pages/AuthPage"
 import AdminUsers from "./pages/AdminUsers"
+import AdminActivity from "./pages/AdminActivity"
 import NotFound from "./pages/NotFound"
 import { AuthProvider } from "./contexts/AuthContext"
 import { chapters, type Chapter } from './data/courseData'
@@ -123,6 +124,7 @@ function App() {
           <Route path="/games/balance-beam" element={<BalanceBeam />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/activity" element={<AdminActivity />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>

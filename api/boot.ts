@@ -1,5 +1,8 @@
 import app from "./app";
 import { env } from "./lib/env";
+import { seedDefaultAdmin } from "./lib/seed-admin";
+
+seedDefaultAdmin();
 
 if (env.isProduction) {
   const { serve } = await import("@hono/node-server");
