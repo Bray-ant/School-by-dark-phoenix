@@ -1,6 +1,6 @@
 import { useState } from 'react';
-
-// icons not needed
+import { LabLayout, LabControls } from './shared';
+import type { SliderConfig } from './shared';
 
 export default function SuperpositionLab({ showInfo: _showInfo }: { showInfo?: boolean }) {
   const [v1, setV1] = useState(10);
@@ -23,31 +23,20 @@ export default function SuperpositionLab({ showInfo: _showInfo }: { showInfo?: b
   const vNodeV2Only = v2 * g2 / gTotal;
 
   
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="text-center">
-          <h2 className="text-lg font-bold mb-1">Superposition Laboratory</h2>
-          <p className="text-xs text-[#737373]">In linear circuits, the total response equals the sum of individual source responses</p>
-        </div>
+  const sliders: SliderConfig[] = [
+    { label: 'V1', value: v1, setter: setV1, min: -20, max: 30, color: '#f59e0b', unit: 'V', format: v => String(v) },
+    { label: 'V2', value: v2, setter: setV2, min: -20, max: 30, color: '#ef4444', unit: 'V', format: v => String(v) },
+    { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
+    { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
+    { label: 'R3', value: r3, setter: setR3, min: 100, max: 10000, color: '#10b981' },
+  ];
 
-        <div className="glass-panel rounded-xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { label: 'V1', value: v1, setter: setV1, min: -20, max: 30, color: '#f59e0b' },
-              { label: 'V2', value: v2, setter: setV2, min: -20, max: 30, color: '#ef4444' },
-              { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
-              { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
-              { label: 'R3', value: r3, setter: setR3, min: 100, max: 10000, color: '#10b981' },
-            ].map(c => (
-              <div key={c.label}>
-                <label className="text-[10px] text-[#737373] mb-1 block">{c.label}</label>
-                <input type="range" min={c.min} max={c.max} value={c.value} onChange={e => c.setter(Number(e.target.value))} className="w-full" style={{ accentColor: c.color }} />
-                <span className="text-xs font-mono" style={{ color: c.color }}>{c.label.startsWith('V') ? `${c.value} V` : `${(c.value / 1000).toFixed(1)} kΩ`}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+  return (
+    <LabLayout
+      title="Superposition Laboratory"
+      subtitle="In linear circuits, the total response equals the sum of individual source responses"
+    >
+      <LabControls sliders={sliders} columns="grid-cols-2 md:grid-cols-5" />
 
         {/* Source toggle */}
         <div className="flex gap-2 justify-center">
@@ -134,7 +123,6 @@ export default function SuperpositionLab({ showInfo: _showInfo }: { showInfo?: b
           </div>
           <p className="text-[10px] text-[#525252]">Superposition verified: the sum of individual responses equals the total response</p>
         </div>
-      </div>
-    </div>
+    </LabLayout>
   );
 }

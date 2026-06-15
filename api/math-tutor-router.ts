@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { createRouter, authedQuery, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
-import { aiConversations, aiMessages } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
 import {
   getUserAccessToken,
   callKimiChat,
   MATH_TUTOR_SYSTEM_PROMPT,
 } from "./kimi/chat";
-import { TRPCError } from "@trpc/server";
+import { handleTutorMessage } from "./lib/ai-helpers";
 
 // ── Topic detection ──────────────────────────
 function detectMathTopic(q: string): string {
@@ -209,82 +206,17 @@ export const mathTutorRouter = createRouter({
       conversationId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = getDb();
-      let convId = input.conversationId;
-
-      // Create conversation if needed
-      if (!convId) {
-        const topic = detectMathTopic(input.message);
-        const [conv] = await db.insert(aiConversations).values({
-          userId: ctx.user.id,
-          title: `[Math] ${topic}: ${input.message.slice(0, 40)}${input.message.length > 40 ? "..." : ""}`,
-        }).$returningId();
-        convId = conv.id;
-      }
-
-      // Verify ownership
-      const [conv] = await db.select().from(aiConversations).where(eq(aiConversations.id, convId)).limit(1);
-      if (!conv || conv.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Not your conversation" });
-      }
-
-      // Save user message
-      await db.insert(aiMessages).values({
-        conversationId: convId,
-        role: "user",
-        content: input.message,
-      });
-
-      // Get access token
-      const accessToken = await getUserAccessToken(ctx.user.id);
       const topic = detectMathTopic(input.message);
-
-      let response: string;
-
-      if (accessToken) {
-        // Use real Kimi API with MathMentor system prompt
-        const history = await db.select().from(aiMessages)
-          .where(eq(aiMessages.conversationId, convId))
-          .orderBy(desc(aiMessages.createdAt))
-          .limit(20);
-
-        const messages = [
-          { role: "system" as const, content: MATH_TUTOR_SYSTEM_PROMPT },
-          { role: "system" as const, content: `The student's question is about: ${topic}. Follow the MathMentor teaching structure: intuition → definition → worked example(s) → common mistakes → exercises.` },
-          ...history.reverse().map(m => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
-        ];
-
-        try {
-          response = await callKimiChat(accessToken, messages, {
-            temperature: 0.7,
-            max_tokens: 3000,
-          });
-        } catch {
-          // Fallback to local knowledge
-          response = generateLocalMathResponse(input.message, topic)
-            + "\n\n*(Kimi API temporarily unavailable — using built-in MathMentor knowledge base)*";
-        }
-      } else {
-        response = generateLocalMathResponse(input.message, topic)
-          + "\n\n*(Sign out and sign back in to enable enhanced Kimi AI responses with full MathMentor capabilities)*";
-      }
-
-      // Save AI response
-      const [aiMsg] = await db.insert(aiMessages).values({
-        conversationId: convId,
-        role: "assistant",
-        content: response,
-      }).$returningId();
-      const [inserted] = await db.select().from(aiMessages).where(eq(aiMessages.id, aiMsg.id)).limit(1);
-
-      return {
-        conversationId: convId,
-        topic,
-        response: inserted,
-      };
+      const result = await handleTutorMessage({
+        userId: ctx.user.id,
+        message: input.message,
+        conversationId: input.conversationId,
+        titlePrefix: `[Math] ${topic}: `,
+        systemPrompt: MATH_TUTOR_SYSTEM_PROMPT + `\n\nThe student's question is about: ${topic}. Follow the MathMentor teaching structure: intuition → definition → worked example(s) → common mistakes → exercises.`,
+        localFallback: (msg) => generateLocalMathResponse(msg, topic),
+        fallbackSuffix: "\n\n*(Kimi API temporarily unavailable — using built-in MathMentor knowledge base)*",
+      });
+      return { ...result, topic };
     }),
 
   // Authenticated: generate math problems

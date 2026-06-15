@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '@/providers/trpc';
 import { getAuditLogs } from '../utils/security';
+import { exportToCsv } from '../utils/exportCsv';
 import {
   LayoutDashboard, Users, Download,
   CheckCircle, Activity, ArrowLeft,
@@ -32,29 +33,19 @@ export default function AdminAnalytics() {
   const quizAvgScore = totalUsers > 0 ? Math.round(68 + Math.random() * 20) : 0;
 
   const handleExportUsers = () => {
-    const headers = ['ID', 'Username', 'Email', 'Role', 'Verified', 'Created At'];
-    const rows = allUsers.map((u: any) => [u.id, u.username, u.email, u.role, u.isVerified ? 'Yes' : 'No', u.createdAt]);
-    const csv = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `forceform-users-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToCsv(
+      ['ID', 'Username', 'Email', 'Role', 'Verified', 'Created At'],
+      allUsers.map((u: any) => [u.id, u.username, u.email, u.role, u.isVerified ? 'Yes' : 'No', u.createdAt]),
+      `forceform-users-${new Date().toISOString().split('T')[0]}.csv`
+    );
   };
 
   const handleExportAudit = () => {
-    const headers = ['Timestamp', 'Action', 'Email', 'Success', 'Details'];
-    const rows = auditLogs.map((l: any) => [l.timestamp, l.action, l.email || '', l.success ? 'Yes' : 'No', l.details || '']);
-    const csv = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `forceform-audit-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToCsv(
+      ['Timestamp', 'Action', 'Email', 'Success', 'Details'],
+      auditLogs.map((l: any) => [l.timestamp, l.action, l.email || '', l.success ? 'Yes' : 'No', l.details || '']),
+      `forceform-audit-${new Date().toISOString().split('T')[0]}.csv`
+    );
   };
 
   if (!isAdmin) {

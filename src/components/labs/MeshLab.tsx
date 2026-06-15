@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calculator, Eye } from 'lucide-react';
 import { gaussJordanElimination } from '../../lib/circuitSolver';
+import { LabLayout, LabControls } from './shared';
+import type { SliderConfig } from './shared';
 
 export default function MeshLab({ showInfo: _showInfo }: { showInfo?: boolean }) {
   const [v1, setV1] = useState(10);
@@ -25,32 +27,20 @@ export default function MeshLab({ showInfo: _showInfo }: { showInfo?: boolean })
     [b1, b2]
   );
 
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="text-center">
-          <h2 className="text-lg font-bold mb-1">Mesh Analysis Laboratory</h2>
-          <p className="text-xs text-[#737373]">Apply KVL around each independent loop to form mesh equations</p>
-        </div>
+  const sliders: SliderConfig[] = [
+    { label: 'V1', value: v1, setter: setV1, min: -20, max: 30, color: '#f59e0b', unit: 'V', format: v => String(v) },
+    { label: 'V2', value: v2, setter: setV2, min: -20, max: 30, color: '#ef4444', unit: 'V', format: v => String(v) },
+    { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
+    { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
+    { label: 'R3', value: r3, setter: setR3, min: 100, max: 10000, color: '#10b981' },
+  ];
 
-        {/* Controls */}
-        <div className="glass-panel rounded-xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { label: 'V1', value: v1, setter: setV1, min: -20, max: 30, color: '#f59e0b' },
-              { label: 'V2', value: v2, setter: setV2, min: -20, max: 30, color: '#ef4444' },
-              { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
-              { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
-              { label: 'R3', value: r3, setter: setR3, min: 100, max: 10000, color: '#10b981' },
-            ].map(c => (
-              <div key={c.label}>
-                <label className="text-[10px] text-[#737373] mb-1 block">{c.label}</label>
-                <input type="range" min={c.min} max={c.max} value={c.value} onChange={e => c.setter(Number(e.target.value))} className="w-full accent-[#8b5cf6]" />
-                <span className="text-xs font-mono" style={{ color: c.color }}>{Math.abs(c.value) >= 1000 ? `${(c.value / 1000).toFixed(1)}k` : c.value} {c.label.startsWith('V') ? 'V' : 'Ω'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+  return (
+    <LabLayout
+      title="Mesh Analysis Laboratory"
+      subtitle="Apply KVL around each independent loop to form mesh equations"
+    >
+      <LabControls sliders={sliders} columns="grid-cols-2 md:grid-cols-5" accentColor="#8b5cf6" />
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Circuit diagram */}
@@ -157,7 +147,6 @@ export default function MeshLab({ showInfo: _showInfo }: { showInfo?: boolean })
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </LabLayout>
   );
 }

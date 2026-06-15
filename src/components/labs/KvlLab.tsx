@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Play, RotateCcw } from 'lucide-react';
+import { useAnimationLoop } from '../../hooks/useAnimationLoop';
+import { LabLayout, LabControls } from './shared';
+import type { SliderConfig } from './shared';
 
 export default function KvlLab({ showInfo: _showInfo }: { showInfo?: boolean }) {
   const [vSource, setVSource] = useState(12);
@@ -9,25 +12,13 @@ export default function KvlLab({ showInfo: _showInfo }: { showInfo?: boolean }) 
   const [r3, setR3] = useState(1000);
   const [activeLoop, setActiveLoop] = useState(false);
   const [loopStep, setLoopStep] = useState(0);
-  const [animTime, setAnimTime] = useState(0);
-  const animRef = useRef<number>(0);
+  const animTime = useAnimationLoop();
 
   const rTotal = r1 + r2 + r3;
   const iTotal = vSource / rTotal;
   const v1 = iTotal * r1;
   const v2 = iTotal * r2;
   const v3 = iTotal * r3;
-
-  useEffect(() => {
-    let running = true;
-    const loop = () => {
-      if (!running) return;
-      setAnimTime(t => t + 0.02);
-      animRef.current = requestAnimationFrame(loop);
-    };
-    animRef.current = requestAnimationFrame(loop);
-    return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, []);
 
   const steps = [
     { label: 'Start at source (+)', value: vSource, color: '#f59e0b', desc: `V_source = ${vSource.toFixed(1)} V (voltage rise)` },
@@ -38,45 +29,29 @@ export default function KvlLab({ showInfo: _showInfo }: { showInfo?: boolean }) 
 
   const kvlSum = vSource - v1 - v2 - v3;
 
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Title */}
-        <div className="text-center">
-          <h2 className="text-lg font-bold mb-1">Kirchhoff's Voltage Law Laboratory</h2>
-          <p className="text-xs text-[#737373]">Sum of voltages around any closed loop equals zero: ΣV = 0</p>
-        </div>
+  const sliders: SliderConfig[] = [
+    { label: 'V_source', value: vSource, setter: setVSource, min: 1, max: 50, color: '#f59e0b', unit: 'V', format: v => String(v) },
+    { label: 'R1', value: r1, setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
+    { label: 'R2', value: r2, setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
+    { label: 'R3', value: r3, setter: setR3, min: 100, max: 10000, color: '#10b981' },
+  ];
 
-        {/* Controls */}
-        <div className="glass-panel rounded-xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'V_source', value: vSource, unit: 'V', setter: setVSource, min: 1, max: 50, color: '#f59e0b' },
-              { label: 'R1', value: r1, unit: 'Ω', setter: setR1, min: 100, max: 10000, color: '#3b82f6' },
-              { label: 'R2', value: r2, unit: 'Ω', setter: setR2, min: 100, max: 10000, color: '#8b5cf6' },
-              { label: 'R3', value: r3, unit: 'Ω', setter: setR3, min: 100, max: 10000, color: '#10b981' },
-            ].map(c => (
-              <div key={c.label}>
-                <label className="text-[10px] text-[#737373] mb-1 block">{c.label} ({c.unit})</label>
-                <input
-                  type="range" min={c.min} max={c.max} value={c.value}
-                  onChange={e => c.setter(Number(e.target.value))}
-                  className="w-full accent-[#3b82f6]"
-                />
-                <span className="text-xs font-mono" style={{ color: c.color }}>{c.value >= 1000 ? `${(c.value / 1000).toFixed(1)}k` : c.value} {c.unit}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => { setActiveLoop(!activeLoop); setLoopStep(0); }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f59e0b]/15 border border-[#f59e0b]/30 text-xs text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-all"
-            >
-              {activeLoop ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              {activeLoop ? 'Reset' : 'Trace Loop'}
-            </button>
-          </div>
+  return (
+    <LabLayout
+      title="Kirchhoff's Voltage Law Laboratory"
+      subtitle="Sum of voltages around any closed loop equals zero: ΣV = 0"
+    >
+      <LabControls sliders={sliders} columns="grid-cols-2 md:grid-cols-4">
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => { setActiveLoop(!activeLoop); setLoopStep(0); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f59e0b]/15 border border-[#f59e0b]/30 text-xs text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-all"
+          >
+            {activeLoop ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {activeLoop ? 'Reset' : 'Trace Loop'}
+          </button>
         </div>
+      </LabControls>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Circuit Visualization */}
@@ -191,7 +166,6 @@ export default function KvlLab({ showInfo: _showInfo }: { showInfo?: boolean }) 
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </LabLayout>
   );
 }
