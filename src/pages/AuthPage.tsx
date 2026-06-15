@@ -124,13 +124,11 @@ export default function AuthPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (data.token) {
-        setResetToken(data.token);
+      if (res.ok) {
         setView('resetPassword');
-        showToast('Reset token generated! Check below.', 'success');
+        showToast('If an account exists, a reset link has been sent to your email.', 'success');
       } else {
-        showToast('If an account exists, a reset token will be generated.', 'success');
+        showToast('If an account exists, a reset link has been sent to your email.', 'success');
       }
     } catch {
       showToast('Request failed.', 'error');
