@@ -26,7 +26,7 @@ export default function AdminActivity() {
   const { user } = useAuth();
   const { data: activity, isLoading, error } = trpc.admin.activity.useQuery();
 
-  if (!user || user.role !== 'admin') {
+  if (!user || user.email !== 'hohenheimvon01@gmail.com') {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="glass-panel rounded-2xl p-6 text-center max-w-sm">

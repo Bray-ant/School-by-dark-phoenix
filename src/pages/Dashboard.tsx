@@ -117,15 +117,17 @@ export default function Dashboard() {
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
-                  <Link to="/admin/activity" className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
-                    <Activity className="w-4 h-4 text-[#10b981]" />
-                    <div>
-                      <div className="text-xs font-medium">Login Activity</div>
-                      <div className="text-[10px] text-[#737373]">Track all login & logout events</div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Link>
                 </>
+              )}
+              {user?.email === 'hohenheimvon01@gmail.com' && (
+                <Link to="/admin/activity" className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                  <Activity className="w-4 h-4 text-[#10b981]" />
+                  <div>
+                    <div className="text-xs font-medium">Login Activity</div>
+                    <div className="text-[10px] text-[#737373]">Track all login & logout events</div>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#737373] ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
               )}
             </div>
           </motion.div>

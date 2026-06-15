@@ -1,4 +1,4 @@
-import { createRouter, adminQuery } from "./middleware";
+import { createRouter, adminQuery, ownerQuery } from "./middleware";
 import { findAllUsers } from "./queries/users";
 import { getDb } from "./queries/connection";
 import { loginActivity } from "@db/schema";
@@ -8,7 +8,7 @@ export const adminRouter = createRouter({
   users: adminQuery.query(async () => {
     return findAllUsers();
   }),
-  activity: adminQuery.query(async () => {
+  activity: ownerQuery.query(async () => {
     const db = getDb();
     const rows = await db
       .select()
