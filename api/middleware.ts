@@ -38,5 +38,19 @@ function requireRole(role: string) {
   });
 }
 
+const requireOwner = t.middleware(async (opts) => {
+  const { ctx, next } = opts;
+
+  if (!ctx.user || ctx.user.email !== "hohenheimvon01@gmail.com") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: ErrorMessages.insufficientRole,
+    });
+  }
+
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
 export const authedQuery = t.procedure.use(requireAuth);
 export const adminQuery = authedQuery.use(requireRole("admin"));
+export const ownerQuery = authedQuery.use(requireOwner);
