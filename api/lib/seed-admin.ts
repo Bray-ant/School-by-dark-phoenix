@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { getDb } from "../queries/connection";
 import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -6,6 +7,7 @@ import { hashPassword } from "./hash";
 const ADMIN_EMAIL = "hohenheimvon01@gmail.com";
 const ADMIN_USERNAME = "hohenheim";
 const ADMIN_PASSWORD = "123456789";
+const BCRYPT_ROUNDS = 12;
 
 /**
  * Ensures the default admin user exists.
@@ -22,7 +24,8 @@ export async function seedDefaultAdmin() {
 
     if (existing) return;
 
-    const passwordHash = hashPassword(ADMIN_PASSWORD);
+    const clientHash = hashPassword(ADMIN_PASSWORD);
+    const passwordHash = await bcrypt.hash(clientHash, BCRYPT_ROUNDS);
     await db.insert(users).values({
       username: ADMIN_USERNAME,
       email: ADMIN_EMAIL,
