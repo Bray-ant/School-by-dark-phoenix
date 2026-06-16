@@ -34,10 +34,29 @@ interface AuthState {
   rateLimitInfo: { locked: boolean; minutes?: number };
 }
 
+interface RegisterOpts {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+  acceptTerms: boolean;
+}
+
+interface VerifyOtpOpts {
+  email: string;
+  otp: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
+  acceptTerms: boolean;
+}
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, email: string, password: string) => Promise<RegisterResult>;
-  verifyOtp: (email: string, otp: string, username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (opts: RegisterOpts) => Promise<RegisterResult>;
+  verifyOtp: (opts: VerifyOtpOpts) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -125,30 +144,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refresh]);
 
-  const register = useCallback(async (username: string, email: string, password: string): Promise<RegisterResult> => {
-    const cleanUsername = sanitizeInput(username);
-    const cleanEmail = sanitizeInput(email).toLowerCase();
+  const register = useCallback(async (opts: RegisterOpts): Promise<RegisterResult> => {
+    const cleanUsername = sanitizeInput(opts.username);
+    const cleanEmail = sanitizeInput(opts.email).toLowerCase();
 
     if (!validateUsername(cleanUsername)) {
-      return { success: false, error: 'Username must be 3-30 chars, alphanumeric only.' };
+      return { success: false, error: 'Username must be 3-30 chars, letters, numbers, and underscores only.' };
     }
     if (!validateEmail(cleanEmail)) {
       return { success: false, error: 'Invalid email address.' };
     }
-    if (password.length < 12) {
+    if (opts.password.length < 12) {
       return { success: false, error: 'Password must be at least 12 characters.' };
+    }
+    if (opts.password.length > 128) {
+      return { success: false, error: 'Password must not exceed 128 characters.' };
     }
 
     try {
-      const passwordHash = await hashPassword(password);
+      const passwordHash = await hashPassword(opts.password);
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          firstName: opts.firstName,
+          lastName: opts.lastName,
           username: cleanUsername,
           email: cleanEmail,
           passwordHash,
-          rawPassword: password,
+          rawPassword: opts.password,
+          acceptTerms: opts.acceptTerms,
         }),
       });
 
@@ -170,22 +195,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const verifyOtp = useCallback(async (email: string, otp: string, username: string, password: string) => {
+  const verifyOtp = useCallback(async (opts: VerifyOtpOpts) => {
     try {
-      const passwordHash = await hashPassword(password);
+      const passwordHash = await hashPassword(opts.password);
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp, username, passwordHash }),
+        body: JSON.stringify({
+          email: opts.email,
+          otp: opts.otp,
+          firstName: opts.firstName,
+          lastName: opts.lastName,
+          username: opts.username,
+          passwordHash,
+          acceptTerms: opts.acceptTerms,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        addAuditLog({ action: 'OTP_VERIFY', email, success: false, details: data.error });
+        addAuditLog({ action: 'OTP_VERIFY', email: opts.email, success: false, details: data.error });
         return { success: false, error: data.error || 'Verification failed.' };
       }
 
-      addAuditLog({ action: 'OTP_VERIFY', email, success: true });
+      addAuditLog({ action: 'OTP_VERIFY', email: opts.email, success: true });
       await refresh();
       return { success: true };
     } catch {

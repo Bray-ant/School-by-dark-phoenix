@@ -16,10 +16,16 @@ export const users = mysqlTable("users", {
   username: varchar("username", { length: 30 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull().unique(),
   passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  firstName: varchar("firstName", { length: 100 }),
+  lastName: varchar("lastName", { length: 100 }),
   name: varchar("name", { length: 255 }),
   avatar: text("avatar"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   isVerified: tinyint("isVerified", { unsigned: true }).default(1).notNull(),
+  emailVerified: tinyint("emailVerified", { unsigned: true }).default(0).notNull(),
+  failedLoginAttempts: int("failedLoginAttempts", { unsigned: true }).default(0).notNull(),
+  accountLockedUntil: timestamp("accountLockedUntil"),
+  acceptedTermsAt: timestamp("acceptedTermsAt"),
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   tokenExpiresAt: timestamp("tokenExpiresAt"),
@@ -164,6 +170,16 @@ export const loginActivity = mysqlTable("login_activity", {
 });
 
 export type LoginActivity = typeof loginActivity.$inferSelect;
+
+// Password history (to prevent reuse of previous passwords)
+export const passwordHistory = mysqlTable("password_history", {
+  id: serial("id").primaryKey(),
+  userId: bigint("userId", { mode: "number", unsigned: true }).notNull(),
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PasswordHistoryEntry = typeof passwordHistory.$inferSelect;
 
 //
 // Example:

@@ -1,4 +1,5 @@
 const MIN_LENGTH = 12;
+const MAX_LENGTH = 128;
 
 export interface PasswordValidationResult {
   valid: boolean;
@@ -10,6 +11,9 @@ export function validatePasswordStrength(password: string): PasswordValidationRe
 
   if (password.length < MIN_LENGTH) {
     errors.push(`Password must be at least ${MIN_LENGTH} characters`);
+  }
+  if (password.length > MAX_LENGTH) {
+    errors.push(`Password must not exceed ${MAX_LENGTH} characters`);
   }
   if (!/[A-Z]/.test(password)) {
     errors.push("Password must contain at least one uppercase letter");
