@@ -8,7 +8,21 @@ import {
 } from 'lucide-react';
 import { hashPassword } from '../utils/security';
 
-type View = 'login' | 'register' | 'forgotPassword' | 'resetPassword';
+type View = 'login' | 'register' | 'verifyOtp' | 'forgotPassword' | 'resetPassword';
+
+// ── Password policy helpers ──
+
+const PASSWORD_RULES = [
+  { test: (pw: string) => pw.length >= 12, label: '12+ characters' },
+  { test: (pw: string) => /[A-Z]/.test(pw), label: 'Uppercase letter' },
+  { test: (pw: string) => /[a-z]/.test(pw), label: 'Lowercase letter' },
+  { test: (pw: string) => /\d/.test(pw), label: 'Number' },
+  { test: (pw: string) => /[^a-zA-Z0-9]/.test(pw), label: 'Special character' },
+];
+
+function isPasswordValid(pw: string): boolean {
+  return PASSWORD_RULES.every(r => r.test(pw));
+}
 
 function strengthScore(pw: string): number {
   let s = 0;
@@ -45,6 +59,25 @@ function StrengthMeter({ password }: { password: string }) {
   );
 }
 
+function PasswordRequirements({ password }: { password: string }) {
+  if (!password) return null;
+  return (
+    <div className="mt-2 space-y-0.5">
+      {PASSWORD_RULES.map(rule => {
+        const pass = rule.test(password);
+        return (
+          <div key={rule.label} className="flex items-center gap-1.5">
+            {pass
+              ? <CheckCircle className="w-3 h-3 text-[#10b981]" />
+              : <XCircle className="w-3 h-3 text-[#525252]" />}
+            <span className={`text-[9px] ${pass ? 'text-[#10b981]' : 'text-[#525252]'}`}>{rule.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
   return (
@@ -59,7 +92,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 }
 
 export default function AuthPage() {
-  const { isAuthenticated, login, register, rateLimitInfo } = useAuth();
+  const { isAuthenticated, login, register, verifyOtp, rateLimitInfo } = useAuth();
   const [view, setView] = useState<View>('login');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -73,9 +106,14 @@ export default function AuthPage() {
   const [regPw, setRegPw] = useState('');
   const [showRegPw, setShowRegPw] = useState(false);
 
-  // Forgot password
+  // OTP verification state
+  const [otpCode, setOtpCode] = useState('');
+  const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
+
+  // Forgot/reset password
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
+  const [tokenAutoFilled, setTokenAutoFilled] = useState(false);
   const [resetPw, setResetPw] = useState('');
   const [showResetPw, setShowResetPw] = useState(false);
 
@@ -90,6 +128,8 @@ export default function AuthPage() {
 
   const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
 
+  // ── Handlers ──
+
   const handleLogin = async () => {
     if (!loginEmail || !loginPw) { showToast('Please fill in all fields.', 'error'); return; }
     setLoading(true);
@@ -101,16 +141,34 @@ export default function AuthPage() {
 
   const handleRegister = async () => {
     if (!regName || !regEmail || !regPw) { showToast('Please fill in all fields.', 'error'); return; }
-    if (strengthScore(regPw) < 2) { showToast('Password must be at least Strong.', 'error'); return; }
+    if (!isPasswordValid(regPw)) { showToast('Password does not meet all requirements.', 'error'); return; }
     setLoading(true);
     const result = await register(regName, regEmail, regPw);
     if (result.success) {
-      showToast('Account created! Please sign in.', 'success');
-      setView('login');
-      setLoginEmail(regEmail);
-      setRegName(''); setRegEmail(''); setRegPw('');
+      if (result.requiresOtp) {
+        if (result.otp) setOtpDevCode(result.otp);
+        setView('verifyOtp');
+        showToast(result.otp ? 'Verification code generated (dev mode).' : 'Verification code sent to your email.', 'success');
+      } else {
+        showToast('Account created! Please sign in.', 'success');
+        setView('login');
+        setLoginEmail(regEmail);
+      }
     } else {
       showToast(result.error || 'Registration failed.', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode) { showToast('Enter the verification code.', 'error'); return; }
+    setLoading(true);
+    const result = await verifyOtp(regEmail, otpCode, regName, regPw);
+    if (result.success) {
+      showToast('Account verified! Logging you in...', 'success');
+      setRegName(''); setRegEmail(''); setRegPw(''); setOtpCode(''); setOtpDevCode(null);
+    } else {
+      showToast(result.error || 'Verification failed.', 'error');
     }
     setLoading(false);
   };
@@ -124,11 +182,22 @@ export default function AuthPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        if (data.token) {
+          setResetToken(data.token);
+          setTokenAutoFilled(true);
+        }
         setView('resetPassword');
-        showToast('If an account exists, a reset link has been sent to your email.', 'success');
+        showToast(
+          data.token
+            ? 'Reset token generated. Enter your new password below.'
+            : 'If an account exists, a reset link has been sent to your email.',
+          'success',
+        );
       } else {
         showToast('If an account exists, a reset link has been sent to your email.', 'success');
+        setView('resetPassword');
       }
     } catch {
       showToast('Request failed.', 'error');
@@ -137,8 +206,9 @@ export default function AuthPage() {
   };
 
   const handleResetPassword = async () => {
+    if (!resetToken) { showToast('Please enter the reset token.', 'error'); return; }
     if (!resetPw) { showToast('Enter a new password.', 'error'); return; }
-    if (strengthScore(resetPw) < 2) { showToast('Password must be at least Strong.', 'error'); return; }
+    if (!isPasswordValid(resetPw)) { showToast('Password does not meet all requirements.', 'error'); return; }
 
     setLoading(true);
     try {
@@ -146,12 +216,12 @@ export default function AuthPage() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: resetToken, passwordHash }),
+        body: JSON.stringify({ token: resetToken, passwordHash, rawPassword: resetPw }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showToast('Password reset! Please sign in.', 'success');
-        setResetPw(''); setResetToken(''); setForgotEmail(''); setView('login');
+        setResetPw(''); setResetToken(''); setForgotEmail(''); setTokenAutoFilled(false); setView('login');
       } else {
         showToast(data.error || 'Reset failed.', 'error');
       }
@@ -162,10 +232,26 @@ export default function AuthPage() {
   };
 
   const genPw = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let pw = '';
-    for (let i = 0; i < 14; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-    setRegPw(pw);
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const digits = '0123456789';
+    const special = '!@#$%^&*';
+    const all = lower + upper + digits + special;
+    // Guarantee one of each required category
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    let pw = lower[arr[0] % lower.length]
+      + upper[arr[1] % upper.length]
+      + digits[arr[2] % digits.length]
+      + special[arr[3] % special.length];
+    for (let i = 4; i < 16; i++) pw += all[arr[i] % all.length];
+    // Shuffle
+    const chars = pw.split('');
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = arr[i % arr.length] % (i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    setRegPw(chars.join(''));
     setShowRegPw(true);
   };
 
@@ -231,7 +317,7 @@ export default function AuthPage() {
                     <button onClick={() => setView('forgotPassword')} className="text-[#8b5cf6] hover:underline font-medium">Forgot password?</button>
                   </p>
                   <p className="text-[10px] text-[#737373]">
-                    Don't have an account?{' '}
+                    Don&apos;t have an account?{' '}
                     <button onClick={() => setView('register')} className="text-[#8b5cf6] hover:underline font-medium">Create one</button>
                   </p>
                 </div>
@@ -278,18 +364,55 @@ export default function AuthPage() {
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
                       <input value={regPw} onChange={e => setRegPw(e.target.value)} type={showRegPw ? 'text' : 'password'}
                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-10 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
-                        placeholder="Min 8 chars, mixed case + number" />
+                        placeholder="Min 12 chars, mixed case + number + special" />
                       <button onClick={() => setShowRegPw(!showRegPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#525252] hover:text-white transition-colors">
                         {showRegPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                     {regPw && <StrengthMeter password={regPw} />}
+                    <PasswordRequirements password={regPw} />
                   </div>
                 </div>
 
                 <button onClick={handleRegister} disabled={loading}
                   className="w-full mt-4 py-2.5 bg-[#10b981] hover:bg-[#059669] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
                   {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><UserPlus className="w-3.5 h-3.5" /> Create Account</>}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══ VERIFY OTP ═══ */}
+          {view === 'verifyOtp' && (
+            <motion.div key="otp" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+              <div className="rounded-2xl border border-white/10 bg-[#111118]/80 p-6">
+                <button onClick={() => setView('register')} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
+                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-[#3b82f6]" /> Verify Email</h2>
+                <p className="text-[10px] text-[#737373] mb-4">
+                  Enter the 6-digit code sent to <span className="text-[#a3a3a3] font-medium">{regEmail}</span>
+                </p>
+
+                {otpDevCode && (
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20">
+                    <p className="text-[10px] text-[#f59e0b]">Dev mode — your code is: <span className="font-mono font-bold tracking-widest">{otpDevCode}</span></p>
+                  </div>
+                )}
+
+                <div className="relative mb-3">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                  <input value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#3b82f6]/30 placeholder-[#525252] font-mono tracking-[0.5em] text-center"
+                    placeholder="000000" maxLength={6} inputMode="numeric" />
+                </div>
+
+                <p className="text-[9px] text-[#525252] mb-3">Code expires in 10 minutes. Do not share it with anyone.</p>
+
+                <button onClick={handleVerifyOtp} disabled={loading || otpCode.length !== 6}
+                  className="w-full py-2.5 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
+                  {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Verify & Create Account</>}
                 </button>
               </div>
             </motion.div>
@@ -322,9 +445,24 @@ export default function AuthPage() {
           {view === 'resetPassword' && (
             <motion.div key="reset" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
               <div className="rounded-2xl border border-white/10 bg-[#111118]/80 p-6">
+                <button onClick={() => { setView('forgotPassword'); setTokenAutoFilled(false); setResetToken(''); }} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
                 <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-[#10b981]" /> New Password</h2>
-                <p className="text-[10px] text-[#737373] mb-4">Token: <span className="font-mono text-[#a3a3a3]">{resetToken.slice(0, 12)}...</span></p>
-                <div className="relative mb-3">
+                <p className="text-[10px] text-[#737373] mb-4">
+                  {tokenAutoFilled ? 'Token received. Enter your new password below.' : 'Paste the token from your email and enter a new password.'}
+                </p>
+
+                {!tokenAutoFilled && (
+                  <div className="relative mb-3">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                    <input value={resetToken} onChange={e => setResetToken(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#f59e0b]/30 placeholder-[#525252] font-mono"
+                      placeholder="Paste reset token from email" />
+                  </div>
+                )}
+
+                <div className="relative mb-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
                   <input value={resetPw} onChange={e => setResetPw(e.target.value)} type={showResetPw ? 'text' : 'password'}
                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-10 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
@@ -334,6 +472,8 @@ export default function AuthPage() {
                   </button>
                 </div>
                 {resetPw && <StrengthMeter password={resetPw} />}
+                <PasswordRequirements password={resetPw} />
+
                 <button onClick={handleResetPassword} disabled={loading}
                   className="w-full mt-4 py-2.5 bg-[#10b981] hover:bg-[#059669] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
                   {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Reset Password</>}

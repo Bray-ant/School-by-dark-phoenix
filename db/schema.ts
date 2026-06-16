@@ -123,7 +123,7 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type AIConversation = typeof aiConversations.$inferSelect;
 export type AIMessage = typeof aiMessages.$inferSelect;
 
-// Password reset tokens
+// Password reset tokens (token column stores SHA-256 hash of the raw token)
 export const passwordResetTokens = mysqlTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 320 }).notNull(),
@@ -135,13 +135,27 @@ export const passwordResetTokens = mysqlTable("password_reset_tokens", {
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
-// Login/logout activity log
+// OTP verification tokens (for registration and sensitive actions)
+export const otpTokens = mysqlTable("otp_tokens", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  otp: varchar("otp", { length: 255 }).notNull(),
+  purpose: varchar("purpose", { length: 30 }).notNull(), // 'REGISTER' | 'RESET_PASSWORD' | 'SENSITIVE_ACTION'
+  expiresAt: timestamp("expiresAt").notNull(),
+  used: tinyint("used", { unsigned: true }).default(0).notNull(),
+  attempts: int("attempts", { unsigned: true }).default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OtpToken = typeof otpTokens.$inferSelect;
+
+// Login/auth activity log
 export const loginActivity = mysqlTable("login_activity", {
   id: serial("id").primaryKey(),
   userId: bigint("userId", { mode: "number", unsigned: true }),
   username: varchar("username", { length: 30 }),
   email: varchar("email", { length: 320 }),
-  action: varchar("action", { length: 20 }).notNull(), // 'LOGIN' | 'LOGOUT' | 'REGISTER'
+  action: varchar("action", { length: 30 }).notNull(), // 'LOGIN' | 'LOGOUT' | 'REGISTER' | 'OTP_VERIFY' | 'PASSWORD_RESET' | 'PASSWORD_CHANGE'
   success: tinyint("success", { unsigned: true }).default(1).notNull(),
   ipAddress: varchar("ipAddress", { length: 45 }),
   userAgent: varchar("userAgent", { length: 500 }),

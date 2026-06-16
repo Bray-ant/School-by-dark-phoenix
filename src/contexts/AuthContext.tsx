@@ -20,6 +20,13 @@ export interface AuthUser {
   avatar?: string | null;
 }
 
+interface RegisterResult {
+  success: boolean;
+  error?: string;
+  requiresOtp?: boolean;
+  otp?: string;
+}
+
 interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
@@ -29,7 +36,8 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, email: string, password: string) => Promise<RegisterResult>;
+  verifyOtp: (email: string, otp: string, username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -112,12 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await refresh();
       addAuditLog({ action: 'LOGIN', email: cleanEmail, success: true });
       return { success: true };
-    } catch (err) {
+    } catch {
       return { success: false, error: 'Network error. Please try again.' };
     }
   }, [refresh]);
 
-  const register = useCallback(async (username: string, email: string, password: string) => {
+  const register = useCallback(async (username: string, email: string, password: string): Promise<RegisterResult> => {
     const cleanUsername = sanitizeInput(username);
     const cleanEmail = sanitizeInput(email).toLowerCase();
 
@@ -127,8 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!validateEmail(cleanEmail)) {
       return { success: false, error: 'Invalid email address.' };
     }
-    if (password.length < 8) {
-      return { success: false, error: 'Password must be at least 8 characters.' };
+    if (password.length < 12) {
+      return { success: false, error: 'Password must be at least 12 characters.' };
     }
 
     try {
@@ -136,7 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUsername, email: cleanEmail, passwordHash }),
+        body: JSON.stringify({
+          username: cleanUsername,
+          email: cleanEmail,
+          passwordHash,
+          rawPassword: password,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -145,12 +158,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Registration failed.' };
       }
 
+      if (data.requiresOtp) {
+        addAuditLog({ action: 'REGISTER', email: cleanEmail, success: true, details: 'OTP sent' });
+        return { success: true, requiresOtp: true, otp: data.otp };
+      }
+
       addAuditLog({ action: 'REGISTER', email: cleanEmail, success: true, details: `Username: ${cleanUsername}` });
       return { success: true };
     } catch {
       return { success: false, error: 'Network error. Please try again.' };
     }
   }, []);
+
+  const verifyOtp = useCallback(async (email: string, otp: string, username: string, password: string) => {
+    try {
+      const passwordHash = await hashPassword(password);
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, username, passwordHash }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addAuditLog({ action: 'OTP_VERIFY', email, success: false, details: data.error });
+        return { success: false, error: data.error || 'Verification failed.' };
+      }
+
+      addAuditLog({ action: 'OTP_VERIFY', email, success: true });
+      await refresh();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }, [refresh]);
 
   const logout = useCallback(async () => {
     try {
@@ -172,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...state,
       login,
       register,
+      verifyOtp,
       logout,
       refresh,
     }}>
