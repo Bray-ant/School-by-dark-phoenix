@@ -12,7 +12,6 @@ import { eq, and, gt } from "drizzle-orm";
 import { sendPasswordResetEmail, sendOtpEmail } from "../lib/mailer";
 import { validatePasswordStrength } from "../lib/password-policy";
 
-const PROTECTED_ADMIN_EMAIL = "hohenheimvon01@gmail.com";
 const BCRYPT_ROUNDS = 12;
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
@@ -477,11 +476,6 @@ export function createForgotPasswordHandler() {
         return c.json({ error: "Email is required" }, 400);
       }
 
-      // Silent rejection for protected admin
-      if (email === PROTECTED_ADMIN_EMAIL) {
-        return c.json({ success: true });
-      }
-
       const db = getDb();
       const [user] = await db
         .select()
@@ -586,10 +580,6 @@ export function createResetPasswordHandler() {
           details: "Invalid or expired reset token",
         });
         return c.json({ error: "Invalid or expired reset token" }, 400);
-      }
-
-      if (record.email === PROTECTED_ADMIN_EMAIL) {
-        return c.json({ error: "This account is protected" }, 403);
       }
 
       const serverHash = await bcrypt.hash(passwordHash, BCRYPT_ROUNDS);
