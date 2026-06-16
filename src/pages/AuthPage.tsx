@@ -14,6 +14,7 @@ type View = 'login' | 'register' | 'verifyOtp' | 'forgotPassword' | 'resetPasswo
 
 const PASSWORD_RULES = [
   { test: (pw: string) => pw.length >= 12, label: '12+ characters' },
+  { test: (pw: string) => pw.length <= 128, label: '128 max characters' },
   { test: (pw: string) => /[A-Z]/.test(pw), label: 'Uppercase letter' },
   { test: (pw: string) => /[a-z]/.test(pw), label: 'Lowercase letter' },
   { test: (pw: string) => /\d/.test(pw), label: 'Number' },
@@ -23,6 +24,8 @@ const PASSWORD_RULES = [
 function isPasswordValid(pw: string): boolean {
   return PASSWORD_RULES.every(r => r.test(pw));
 }
+
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
 function strengthScore(pw: string): number {
   let s = 0;
@@ -37,7 +40,7 @@ function strengthScore(pw: string): number {
 function strengthLabel(s: number): { label: string; color: string } {
   const labels = [
     { label: 'Weak', color: '#ef4444' },
-    { label: 'Medium', color: '#f97316' },
+    { label: 'Fair', color: '#f97316' },
     { label: 'Strong', color: '#f59e0b' },
     { label: 'Very Strong', color: '#10b981' },
   ];
@@ -59,11 +62,12 @@ function StrengthMeter({ password }: { password: string }) {
   );
 }
 
-function PasswordRequirements({ password }: { password: string }) {
+function PasswordRequirements({ password, extraRules }: { password: string; extraRules?: { test: (pw: string) => boolean; label: string }[] }) {
   if (!password) return null;
+  const rules = [...PASSWORD_RULES, ...(extraRules || [])];
   return (
     <div className="mt-2 space-y-0.5">
-      {PASSWORD_RULES.map(rule => {
+      {rules.map(rule => {
         const pass = rule.test(password);
         return (
           <div key={rule.label} className="flex items-center gap-1.5">
@@ -101,10 +105,14 @@ export default function AuthPage() {
   const [loginPw, setLoginPw] = useState('');
 
   // Register state
-  const [regName, setRegName] = useState('');
+  const [regFirstName, setRegFirstName] = useState('');
+  const [regLastName, setRegLastName] = useState('');
+  const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPw, setRegPw] = useState('');
+  const [regConfirmPw, setRegConfirmPw] = useState('');
   const [showRegPw, setShowRegPw] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   // OTP verification state
   const [otpCode, setOtpCode] = useState('');
@@ -112,8 +120,8 @@ export default function AuthPage() {
 
   // Forgot/reset password
   const [forgotEmail, setForgotEmail] = useState('');
-  const [resetOtp, setResetOtp] = useState('');
-  const [resetOtpDev, setResetOtpDev] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState('');
+  const [resetTokenDev, setResetTokenDev] = useState<string | null>(null);
   const [resetPw, setResetPw] = useState('');
   const [showResetPw, setShowResetPw] = useState(false);
 
@@ -140,10 +148,31 @@ export default function AuthPage() {
   };
 
   const handleRegister = async () => {
-    if (!regName || !regEmail || !regPw) { showToast('Please fill in all fields.', 'error'); return; }
+    if (!regFirstName || !regLastName || !regUsername || !regEmail || !regPw) {
+      showToast('Please fill in all fields.', 'error'); return;
+    }
+    if (!USERNAME_REGEX.test(regUsername)) {
+      showToast('Username must be 3-30 chars, letters, numbers, and underscores only.', 'error'); return;
+    }
     if (!isPasswordValid(regPw)) { showToast('Password does not meet all requirements.', 'error'); return; }
+    if (regPw !== regConfirmPw) { showToast('Passwords do not match.', 'error'); return; }
+    if (regPw.toLowerCase().includes(regUsername.toLowerCase())) {
+      showToast('Password must not contain your username.', 'error'); return;
+    }
+    if (regPw.toLowerCase().includes(regEmail.split('@')[0].toLowerCase())) {
+      showToast('Password must not contain your email address.', 'error'); return;
+    }
+    if (!acceptTerms) { showToast('You must accept the Terms & Conditions.', 'error'); return; }
+
     setLoading(true);
-    const result = await register(regName, regEmail, regPw);
+    const result = await register({
+      firstName: regFirstName,
+      lastName: regLastName,
+      username: regUsername,
+      email: regEmail,
+      password: regPw,
+      acceptTerms,
+    });
     if (result.success) {
       if (result.requiresOtp) {
         if (result.otp) setOtpDevCode(result.otp);
@@ -163,12 +192,44 @@ export default function AuthPage() {
   const handleVerifyOtp = async () => {
     if (!otpCode) { showToast('Enter the verification code.', 'error'); return; }
     setLoading(true);
-    const result = await verifyOtp(regEmail, otpCode, regName, regPw);
+    const result = await verifyOtp({
+      email: regEmail,
+      otp: otpCode,
+      firstName: regFirstName,
+      lastName: regLastName,
+      username: regUsername,
+      password: regPw,
+      acceptTerms,
+    });
     if (result.success) {
       showToast('Account verified! Logging you in...', 'success');
-      setRegName(''); setRegEmail(''); setRegPw(''); setOtpCode(''); setOtpDevCode(null);
+      setRegFirstName(''); setRegLastName(''); setRegUsername('');
+      setRegEmail(''); setRegPw(''); setRegConfirmPw('');
+      setOtpCode(''); setOtpDevCode(null); setAcceptTerms(false);
     } else {
       showToast(result.error || 'Verification failed.', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleResendOtp = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: regEmail, purpose: 'REGISTER', firstName: regFirstName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (data.otp) setOtpDevCode(data.otp);
+        setOtpCode('');
+        showToast(data.otp ? 'New code generated (dev mode).' : 'New code sent to your email.', 'success');
+      } else {
+        showToast(data.error || 'Failed to resend code.', 'error');
+      }
+    } catch {
+      showToast('Request failed.', 'error');
     }
     setLoading(false);
   };
@@ -184,16 +245,19 @@ export default function AuthPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (data.otp) setResetOtpDev(data.otp);
+        if (data.token) {
+          setResetTokenDev(data.token);
+          setResetToken(data.token);
+        }
         setView('resetPassword');
         showToast(
-          data.otp
-            ? 'Reset code generated (dev mode).'
-            : 'If an account exists, a verification code has been sent to your email.',
+          data.token
+            ? 'Reset token generated (dev mode).'
+            : 'If an account exists, a password reset email has been sent.',
           'success',
         );
       } else {
-        showToast('If an account exists, a verification code has been sent to your email.', 'success');
+        showToast('If an account exists, a password reset email has been sent.', 'success');
         setView('resetPassword');
       }
     } catch {
@@ -203,7 +267,7 @@ export default function AuthPage() {
   };
 
   const handleResetPassword = async () => {
-    if (!resetOtp) { showToast('Enter the verification code.', 'error'); return; }
+    if (!resetToken) { showToast('Enter or paste the reset token.', 'error'); return; }
     if (!resetPw) { showToast('Enter a new password.', 'error'); return; }
     if (!isPasswordValid(resetPw)) { showToast('Password does not meet all requirements.', 'error'); return; }
 
@@ -213,12 +277,12 @@ export default function AuthPage() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, otp: resetOtp, passwordHash, rawPassword: resetPw }),
+        body: JSON.stringify({ token: resetToken, passwordHash, rawPassword: resetPw }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showToast('Password reset! Please sign in.', 'success');
-        setResetPw(''); setResetOtp(''); setResetOtpDev(null); setForgotEmail(''); setView('login');
+        setResetPw(''); setResetToken(''); setResetTokenDev(null); setForgotEmail(''); setView('login');
       } else {
         showToast(data.error || 'Reset failed.', 'error');
       }
@@ -234,7 +298,6 @@ export default function AuthPage() {
     const digits = '0123456789';
     const special = '!@#$%^&*';
     const all = lower + upper + digits + special;
-    // Guarantee one of each required category
     const arr = new Uint8Array(16);
     crypto.getRandomValues(arr);
     let pw = lower[arr[0] % lower.length]
@@ -242,15 +305,27 @@ export default function AuthPage() {
       + digits[arr[2] % digits.length]
       + special[arr[3] % special.length];
     for (let i = 4; i < 16; i++) pw += all[arr[i] % all.length];
-    // Shuffle
     const chars = pw.split('');
     for (let i = chars.length - 1; i > 0; i--) {
       const j = arr[i % arr.length] % (i + 1);
       [chars[i], chars[j]] = [chars[j], chars[i]];
     }
-    setRegPw(chars.join(''));
+    const generated = chars.join('');
+    setRegPw(generated);
+    setRegConfirmPw(generated);
     setShowRegPw(true);
   };
+
+  const regExtraRules = [
+    {
+      test: (pw: string) => !regUsername || !pw.toLowerCase().includes(regUsername.toLowerCase()),
+      label: 'Must not contain username',
+    },
+    {
+      test: (pw: string) => !regEmail || !pw.toLowerCase().includes(regEmail.split('@')[0].toLowerCase()),
+      label: 'Must not contain email',
+    },
+  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative" style={{ background: '#050510' }}>
@@ -332,14 +407,31 @@ export default function AuthPage() {
                 <h2 className="text-sm font-semibold mb-4 flex items-center gap-2"><UserPlus className="w-4 h-4 text-[#10b981]" /> Create Account</h2>
 
                 <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-[#737373] mb-1 block">First Name</label>
+                      <input value={regFirstName} onChange={e => setRegFirstName(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
+                        placeholder="John" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#737373] mb-1 block">Last Name</label>
+                      <input value={regLastName} onChange={e => setRegLastName(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
+                        placeholder="Doe" />
+                    </div>
+                  </div>
                   <div>
                     <label className="text-[10px] text-[#737373] mb-1 block">Username</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
-                      <input value={regName} onChange={e => setRegName(e.target.value)}
+                      <input value={regUsername} onChange={e => setRegUsername(e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
-                        placeholder="Your name" />
+                        placeholder="your_username" />
                     </div>
+                    {regUsername && !USERNAME_REGEX.test(regUsername) && (
+                      <p className="text-[9px] text-[#ef4444] mt-1">3-30 chars, letters, numbers, and underscores only</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-[10px] text-[#737373] mb-1 block">Email</label>
@@ -367,7 +459,29 @@ export default function AuthPage() {
                       </button>
                     </div>
                     {regPw && <StrengthMeter password={regPw} />}
-                    <PasswordRequirements password={regPw} />
+                    <PasswordRequirements password={regPw} extraRules={regExtraRules} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#737373] mb-1 block">Confirm Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                      <input value={regConfirmPw} onChange={e => setRegConfirmPw(e.target.value)} type={showRegPw ? 'text' : 'password'}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#10b981]/30 placeholder-[#525252]"
+                        placeholder="Re-enter your password" />
+                    </div>
+                    {regConfirmPw && regPw !== regConfirmPw && (
+                      <p className="text-[9px] text-[#ef4444] mt-1 flex items-center gap-1"><XCircle className="w-3 h-3" /> Passwords do not match</p>
+                    )}
+                    {regConfirmPw && regPw === regConfirmPw && regConfirmPw.length > 0 && (
+                      <p className="text-[9px] text-[#10b981] mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Passwords match</p>
+                    )}
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)}
+                      className="mt-0.5 rounded border-white/20 bg-white/5" id="accept-terms" />
+                    <label htmlFor="accept-terms" className="text-[10px] text-[#737373] cursor-pointer">
+                      I accept the <span className="text-[#8b5cf6]">Terms & Conditions</span> and <span className="text-[#8b5cf6]">Privacy Policy</span>
+                    </label>
                   </div>
                 </div>
 
@@ -411,6 +525,11 @@ export default function AuthPage() {
                   className="w-full py-2.5 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
                   {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Verify & Create Account</>}
                 </button>
+
+                <button onClick={handleResendOtp} disabled={loading}
+                  className="w-full mt-2 py-2 text-[10px] text-[#737373] hover:text-white transition-colors">
+                  Didn&apos;t receive it? <span className="text-[#3b82f6] font-medium">Resend Code</span>
+                </button>
               </div>
             </motion.div>
           )}
@@ -423,7 +542,7 @@ export default function AuthPage() {
                   <ArrowLeft className="w-3 h-3" /> Back to Sign In
                 </button>
                 <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-[#f59e0b]" /> Reset Password</h2>
-                <p className="text-[10px] text-[#737373] mb-4">Enter your email to receive a verification code.</p>
+                <p className="text-[10px] text-[#737373] mb-4">Enter your email to receive a password reset token.</p>
                 <div className="relative mb-3">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
                   <input value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
@@ -438,32 +557,34 @@ export default function AuthPage() {
             </motion.div>
           )}
 
-          {/* ═══ RESET PASSWORD (OTP + new password) ═══ */}
+          {/* ═══ RESET PASSWORD (token + new password) ═══ */}
           {view === 'resetPassword' && (
             <motion.div key="reset" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
               <div className="rounded-2xl border border-white/10 bg-[#111118]/80 p-6">
-                <button onClick={() => { setView('forgotPassword'); setResetOtp(''); setResetOtpDev(null); }} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
+                <button onClick={() => { setView('forgotPassword'); setResetToken(''); setResetTokenDev(null); }} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </button>
-                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-[#10b981]" /> Reset Password</h2>
+                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-[#10b981]" /> New Password</h2>
                 <p className="text-[10px] text-[#737373] mb-4">
-                  Enter the 6-digit code sent to <span className="text-[#a3a3a3] font-medium">{forgotEmail}</span> and your new password.
+                  {resetTokenDev
+                    ? 'Token auto-filled (dev mode). Enter your new password below.'
+                    : 'Paste the token from your email and enter a new password.'}
                 </p>
 
-                {resetOtpDev && (
+                {resetTokenDev && (
                   <div className="mb-3 px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20">
-                    <p className="text-[10px] text-[#f59e0b]">Dev mode — your code is: <span className="font-mono font-bold tracking-widest">{resetOtpDev}</span></p>
+                    <p className="text-[10px] text-[#f59e0b]">Dev mode — token auto-filled</p>
                   </div>
                 )}
 
-                <div className="relative mb-3">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
-                  <input value={resetOtp} onChange={e => setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#f59e0b]/30 placeholder-[#525252] font-mono tracking-[0.5em] text-center"
-                    placeholder="000000" maxLength={6} inputMode="numeric" />
-                </div>
-
-                <p className="text-[9px] text-[#525252] mb-3">Code expires in 10 minutes. Do not share it with anyone.</p>
+                {!resetTokenDev && (
+                  <div className="relative mb-3">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                    <input value={resetToken} onChange={e => setResetToken(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#f59e0b]/30 placeholder-[#525252] font-mono"
+                      placeholder="Paste reset token from email" />
+                  </div>
+                )}
 
                 <div className="relative mb-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
@@ -477,7 +598,9 @@ export default function AuthPage() {
                 {resetPw && <StrengthMeter password={resetPw} />}
                 <PasswordRequirements password={resetPw} />
 
-                <button onClick={handleResetPassword} disabled={loading || resetOtp.length !== 6}
+                <p className="text-[9px] text-[#525252] mt-2">Token expires in 30 minutes. Do not share it.</p>
+
+                <button onClick={handleResetPassword} disabled={loading}
                   className="w-full mt-4 py-2.5 bg-[#10b981] hover:bg-[#059669] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
                   {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Reset Password</>}
                 </button>
