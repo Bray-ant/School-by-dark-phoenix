@@ -7,14 +7,13 @@ import { getSessionCookieOptions } from "../lib/cookies";
 import { Session } from "@contracts/constants";
 import { signSessionToken, verifySessionToken } from "./session";
 import { getDb } from "../queries/connection";
-import { users, passwordResetTokens, otpTokens, loginActivity } from "@db/schema";
+import { users, otpTokens, loginActivity } from "@db/schema";
 import { eq, and, gt } from "drizzle-orm";
-import { sendPasswordResetEmail, sendOtpEmail } from "../lib/mailer";
+import { sendOtpEmail } from "../lib/mailer";
 import { validatePasswordStrength } from "../lib/password-policy";
 
 const BCRYPT_ROUNDS = 12;
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-const RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_OTP_ATTEMPTS = 5;
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -229,7 +228,7 @@ export function createRegisterHandler() {
         expiresAt,
       });
 
-      const emailSent = await sendOtpEmail(email, otp, username);
+      const emailSent = await sendOtpEmail(email, otp, "registration", username);
 
       recordActivity(c, {
         email,
@@ -461,7 +460,7 @@ export function createLogoutHandler() {
   };
 }
 
-// ── Forgot Password ──────────────────────────────────────────────
+// ── Forgot Password (sends OTP) ─────────────────────────────────
 
 export function createForgotPasswordHandler() {
   return async (c: Context) => {
@@ -487,35 +486,30 @@ export function createForgotPasswordHandler() {
         return c.json({ success: true });
       }
 
-      const rawToken = randomBytes(32).toString("hex");
-      const tokenHash = hashToken(rawToken);
-      const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
+      const otp = generateOtp();
+      const otpHash = hashToken(otp);
+      const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
-      await db.insert(passwordResetTokens).values({
+      await db.insert(otpTokens).values({
         email,
-        token: tokenHash,
+        otp: otpHash,
+        purpose: "RESET_PASSWORD",
         expiresAt,
       });
 
-      const emailSent = await sendPasswordResetEmail(
-        email,
-        rawToken,
-        user.username,
-      );
+      const emailSent = await sendOtpEmail(email, otp, "password reset", user.username);
 
       recordActivity(c, {
         userId: user.id,
         email,
         action: "PASSWORD_RESET_REQ",
         success: true,
-        details: emailSent
-          ? "Reset email sent"
-          : "Reset token generated (no SMTP)",
+        details: emailSent ? "Reset OTP sent via email" : "Reset OTP generated (no SMTP)",
       });
 
-      // If SMTP not configured, return token for development
+      // If SMTP not configured, return OTP for development/testing
       if (!emailSent) {
-        return c.json({ success: true, token: rawToken });
+        return c.json({ success: true, otp });
       }
 
       return c.json({ success: true });
@@ -529,7 +523,7 @@ export function createForgotPasswordHandler() {
   };
 }
 
-// ── Reset Password ───────────────────────────────────────────────
+// ── Reset Password (verify OTP + set new password) ──────────────
 
 export function createResetPasswordHandler() {
   return async (c: Context) => {
@@ -539,16 +533,18 @@ export function createResetPasswordHandler() {
 
     try {
       const body = await c.req.json<{
-        token?: string;
+        email?: string;
+        otp?: string;
         passwordHash?: string;
         rawPassword?: string;
       }>();
-      const token = body.token;
+      const email = body.email?.toLowerCase().trim();
+      const otp = body.otp?.trim();
       const passwordHash = body.passwordHash;
       const rawPassword = body.rawPassword;
 
-      if (!token || !passwordHash) {
-        return c.json({ error: "Token and password are required" }, 400);
+      if (!email || !otp || !passwordHash) {
+        return c.json({ error: "Email, OTP, and new password are required" }, 400);
       }
 
       // Server-side password strength validation
@@ -559,28 +555,77 @@ export function createResetPasswordHandler() {
         }
       }
 
-      const tokenHash = hashToken(token);
+      const otpHash = hashToken(otp);
       const db = getDb();
       const [record] = await db
         .select()
-        .from(passwordResetTokens)
+        .from(otpTokens)
         .where(
           and(
-            eq(passwordResetTokens.token, tokenHash),
-            eq(passwordResetTokens.used, 0),
-            gt(passwordResetTokens.expiresAt, new Date()),
+            eq(otpTokens.email, email),
+            eq(otpTokens.otp, otpHash),
+            eq(otpTokens.purpose, "RESET_PASSWORD"),
+            eq(otpTokens.used, 0),
+            gt(otpTokens.expiresAt, new Date()),
           ),
         )
         .limit(1);
 
       if (!record) {
+        // Check for unused OTP to increment attempts
+        const [existing] = await db
+          .select()
+          .from(otpTokens)
+          .where(
+            and(
+              eq(otpTokens.email, email),
+              eq(otpTokens.purpose, "RESET_PASSWORD"),
+              eq(otpTokens.used, 0),
+              gt(otpTokens.expiresAt, new Date()),
+            ),
+          )
+          .limit(1);
+
+        if (existing) {
+          const newAttempts = (existing.attempts ?? 0) + 1;
+          await db
+            .update(otpTokens)
+            .set({ attempts: newAttempts })
+            .where(eq(otpTokens.id, existing.id));
+
+          if (newAttempts >= MAX_OTP_ATTEMPTS) {
+            await db
+              .update(otpTokens)
+              .set({ used: 1 })
+              .where(eq(otpTokens.id, existing.id));
+
+            recordActivity(c, {
+              email,
+              action: "PASSWORD_RESET",
+              success: false,
+              details: "Max OTP attempts exceeded — invalidated",
+            });
+            return c.json(
+              { error: "Too many invalid attempts. Please request a new code." },
+              429,
+            );
+          }
+        }
+
         recordActivity(c, {
+          email,
           action: "PASSWORD_RESET",
           success: false,
-          details: "Invalid or expired reset token",
+          details: "Invalid or expired OTP",
         });
-        return c.json({ error: "Invalid or expired reset token" }, 400);
+        return c.json({ error: "Invalid or expired verification code" }, 400);
       }
+
+      // Mark OTP as used
+      await db
+        .update(otpTokens)
+        .set({ used: 1 })
+        .where(eq(otpTokens.id, record.id));
 
       const serverHash = await bcrypt.hash(passwordHash, BCRYPT_ROUNDS);
 
@@ -588,19 +633,24 @@ export function createResetPasswordHandler() {
       await db
         .update(users)
         .set({ passwordHash: serverHash })
-        .where(eq(users.email, record.email));
+        .where(eq(users.email, email));
 
-      // Invalidate ALL reset tokens for this email (not just the used one)
+      // Invalidate all OTPs for this email
       await db
-        .update(passwordResetTokens)
+        .update(otpTokens)
         .set({ used: 1 })
-        .where(eq(passwordResetTokens.email, record.email));
+        .where(
+          and(
+            eq(otpTokens.email, email),
+            eq(otpTokens.purpose, "RESET_PASSWORD"),
+          ),
+        );
 
       recordActivity(c, {
-        email: record.email,
+        email,
         action: "PASSWORD_RESET",
         success: true,
-        details: "Password changed via reset token, all tokens invalidated",
+        details: "Password changed via OTP, all reset OTPs invalidated",
       });
 
       return c.json({ success: true });
@@ -694,11 +744,16 @@ export function createChangePasswordHandler() {
         .set({ passwordHash: newServerHash })
         .where(eq(users.id, userId));
 
-      // Invalidate any outstanding reset tokens for this user
+      // Invalidate any outstanding reset OTPs for this user
       await db
-        .update(passwordResetTokens)
+        .update(otpTokens)
         .set({ used: 1 })
-        .where(eq(passwordResetTokens.email, user.email));
+        .where(
+          and(
+            eq(otpTokens.email, user.email),
+            eq(otpTokens.purpose, "RESET_PASSWORD"),
+          ),
+        );
 
       recordActivity(c, {
         userId,
@@ -706,7 +761,7 @@ export function createChangePasswordHandler() {
         email: user.email,
         action: "PASSWORD_CHANGE",
         success: true,
-        details: "Password changed, reset tokens invalidated",
+        details: "Password changed, reset OTPs invalidated",
       });
 
       // Clear the current session cookie so user must re-login with new password

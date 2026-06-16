@@ -112,8 +112,8 @@ export default function AuthPage() {
 
   // Forgot/reset password
   const [forgotEmail, setForgotEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
-  const [tokenAutoFilled, setTokenAutoFilled] = useState(false);
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetOtpDev, setResetOtpDev] = useState<string | null>(null);
   const [resetPw, setResetPw] = useState('');
   const [showResetPw, setShowResetPw] = useState(false);
 
@@ -184,19 +184,16 @@ export default function AuthPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (data.token) {
-          setResetToken(data.token);
-          setTokenAutoFilled(true);
-        }
+        if (data.otp) setResetOtpDev(data.otp);
         setView('resetPassword');
         showToast(
-          data.token
-            ? 'Reset token generated. Enter your new password below.'
-            : 'If an account exists, a reset link has been sent to your email.',
+          data.otp
+            ? 'Reset code generated (dev mode).'
+            : 'If an account exists, a verification code has been sent to your email.',
           'success',
         );
       } else {
-        showToast('If an account exists, a reset link has been sent to your email.', 'success');
+        showToast('If an account exists, a verification code has been sent to your email.', 'success');
         setView('resetPassword');
       }
     } catch {
@@ -206,7 +203,7 @@ export default function AuthPage() {
   };
 
   const handleResetPassword = async () => {
-    if (!resetToken) { showToast('Please enter the reset token.', 'error'); return; }
+    if (!resetOtp) { showToast('Enter the verification code.', 'error'); return; }
     if (!resetPw) { showToast('Enter a new password.', 'error'); return; }
     if (!isPasswordValid(resetPw)) { showToast('Password does not meet all requirements.', 'error'); return; }
 
@@ -216,12 +213,12 @@ export default function AuthPage() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: resetToken, passwordHash, rawPassword: resetPw }),
+        body: JSON.stringify({ email: forgotEmail, otp: resetOtp, passwordHash, rawPassword: resetPw }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showToast('Password reset! Please sign in.', 'success');
-        setResetPw(''); setResetToken(''); setForgotEmail(''); setTokenAutoFilled(false); setView('login');
+        setResetPw(''); setResetOtp(''); setResetOtpDev(null); setForgotEmail(''); setView('login');
       } else {
         showToast(data.error || 'Reset failed.', 'error');
       }
@@ -426,7 +423,7 @@ export default function AuthPage() {
                   <ArrowLeft className="w-3 h-3" /> Back to Sign In
                 </button>
                 <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-[#f59e0b]" /> Reset Password</h2>
-                <p className="text-[10px] text-[#737373] mb-4">Enter your email to receive a reset token.</p>
+                <p className="text-[10px] text-[#737373] mb-4">Enter your email to receive a verification code.</p>
                 <div className="relative mb-3">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
                   <input value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
@@ -441,26 +438,32 @@ export default function AuthPage() {
             </motion.div>
           )}
 
-          {/* ═══ RESET PASSWORD ═══ */}
+          {/* ═══ RESET PASSWORD (OTP + new password) ═══ */}
           {view === 'resetPassword' && (
             <motion.div key="reset" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
               <div className="rounded-2xl border border-white/10 bg-[#111118]/80 p-6">
-                <button onClick={() => { setView('forgotPassword'); setTokenAutoFilled(false); setResetToken(''); }} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
+                <button onClick={() => { setView('forgotPassword'); setResetOtp(''); setResetOtpDev(null); }} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
                   <ArrowLeft className="w-3 h-3" /> Back
                 </button>
-                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-[#10b981]" /> New Password</h2>
+                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-[#10b981]" /> Reset Password</h2>
                 <p className="text-[10px] text-[#737373] mb-4">
-                  {tokenAutoFilled ? 'Token received. Enter your new password below.' : 'Paste the token from your email and enter a new password.'}
+                  Enter the 6-digit code sent to <span className="text-[#a3a3a3] font-medium">{forgotEmail}</span> and your new password.
                 </p>
 
-                {!tokenAutoFilled && (
-                  <div className="relative mb-3">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
-                    <input value={resetToken} onChange={e => setResetToken(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#f59e0b]/30 placeholder-[#525252] font-mono"
-                      placeholder="Paste reset token from email" />
+                {resetOtpDev && (
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20">
+                    <p className="text-[10px] text-[#f59e0b]">Dev mode — your code is: <span className="font-mono font-bold tracking-widest">{resetOtpDev}</span></p>
                   </div>
                 )}
+
+                <div className="relative mb-3">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                  <input value={resetOtp} onChange={e => setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#f59e0b]/30 placeholder-[#525252] font-mono tracking-[0.5em] text-center"
+                    placeholder="000000" maxLength={6} inputMode="numeric" />
+                </div>
+
+                <p className="text-[9px] text-[#525252] mb-3">Code expires in 10 minutes. Do not share it with anyone.</p>
 
                 <div className="relative mb-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
@@ -474,7 +477,7 @@ export default function AuthPage() {
                 {resetPw && <StrengthMeter password={resetPw} />}
                 <PasswordRequirements password={resetPw} />
 
-                <button onClick={handleResetPassword} disabled={loading}
+                <button onClick={handleResetPassword} disabled={loading || resetOtp.length !== 6}
                   className="w-full mt-4 py-2.5 bg-[#10b981] hover:bg-[#059669] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
                   {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Reset Password</>}
                 </button>
