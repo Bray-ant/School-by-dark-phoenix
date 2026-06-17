@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +56,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  headers();
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

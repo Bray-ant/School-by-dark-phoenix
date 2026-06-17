@@ -13,16 +13,15 @@ window.addEventListener('unhandledrejection', function(event) {
 
 window.addEventListener('load', () => {
   setTimeout(() => {
-    const root = document.getElementById('root');
     const loader = document.getElementById('fallback-loader');
-    if (root && root.children.length > 0 && loader) {
+    if (loader) {
       loader.remove();
     }
   }, 500);
 
   setTimeout(() => {
-    const root = document.getElementById('root');
-    if (!root || root.children.length === 0) {
+    const loader = document.getElementById('fallback-loader');
+    if (loader && document.body.contains(loader)) {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
           Promise.all(regs.map(r => r.unregister())).then(() => {
