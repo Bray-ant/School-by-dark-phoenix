@@ -32,6 +32,9 @@ COPY --from=builder /app/postcss.config.js ./
 COPY --from=builder /app/components.json ./
 
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["npx", "next", "start"]
