@@ -1,27 +1,46 @@
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 
-const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
-const smtpUser = process.env.SMTP_USER || "";
-const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
-const fromEmail = process.env.FROM_EMAIL || smtpUser;
+function getSmtpConfig() {
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+  const smtpUser = process.env.SMTP_USER || "";
+  const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
+  const fromEmail = process.env.FROM_EMAIL || smtpUser;
+  return { smtpHost, smtpPort, smtpUser, smtpPass, fromEmail };
+}
 
-console.log(
-  `[mailer] SMTP config: host=${smtpHost} port=${smtpPort} user=${smtpUser ? smtpUser.slice(0, 3) + "***" : "(empty)"} from=${fromEmail ? fromEmail.slice(0, 3) + "***" : "(empty)"}`,
-);
+let cachedTransporter: Transporter | null = null;
+let cachedUser = "";
+let cachedPass = "";
 
-const transporter =
-  smtpUser && smtpPass
-    ? nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: { user: smtpUser, pass: smtpPass },
-      })
-    : null;
+function getTransporter(): { transporter: Transporter | null; fromEmail: string } {
+  const { smtpHost, smtpPort, smtpUser, smtpPass, fromEmail } = getSmtpConfig();
 
-if (!transporter) {
-  console.warn("[mailer] SMTP not configured — emails will not be sent. Set SMTP_USER and SMTP_PASS env vars.");
+  if (!smtpUser || !smtpPass) {
+    console.warn(
+      "[mailer] SMTP not configured — emails will not be sent. Set SMTP_USER and SMTP_PASS env vars.",
+    );
+    return { transporter: null, fromEmail };
+  }
+
+  // Rebuild the transporter only if credentials changed (e.g. after a
+  // rotated app password) — avoids reconnecting on every single send.
+  if (!cachedTransporter || cachedUser !== smtpUser || cachedPass !== smtpPass) {
+    console.log(
+      `[mailer] SMTP config: host=${smtpHost} port=${smtpPort} user=${smtpUser.slice(0, 3)}*** from=${fromEmail.slice(0, 3)}***`,
+    );
+    cachedTransporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+    cachedUser = smtpUser;
+    cachedPass = smtpPass;
+  }
+
+  return { transporter: cachedTransporter, fromEmail };
 }
 
 function escapeHtml(str: string): string {
@@ -35,10 +54,12 @@ function escapeHtml(str: string): string {
 const FOOTER = `<p style="font-size: 12px; color: #666; margin-top: 24px;">Regards,<br/>Security Team — School by Dark Phoenix</p>`;
 
 export function isMailerConfigured(): boolean {
+  const { transporter, fromEmail } = getTransporter();
   return transporter !== null && fromEmail !== "";
 }
 
 async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
+  const { transporter, fromEmail } = getTransporter();
   if (!transporter || !fromEmail) {
     console.warn("[mailer] Cannot send email — SMTP not configured");
     return false;
