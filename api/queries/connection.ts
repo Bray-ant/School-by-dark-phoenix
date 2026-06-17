@@ -12,7 +12,17 @@ export function getDb() {
   if (!instance) {
     const pool = mysql.createPool({
       uri: env.databaseUrl,
-      ssl: { rejectUnauthorized: true },
+      ssl: { rejectUnauthorized: true, minVersion: "TLSv1.2" },
+      // TiDB Cloud's serverless tier can drop idle connections; without
+      // these, mysql2's pool keeps trying to reuse a dead connection and
+      // surfaces it as an intermittent, hard-to-reproduce SSL/transport
+      // error on whichever request happens to grab that stale connection.
+      waitForConnections: true,
+      connectionLimit: 5,
+      maxIdle: 5,
+      idleTimeout: 30000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
     });
     instance = drizzle(pool, {
       mode: "planetscale",

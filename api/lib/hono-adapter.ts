@@ -32,5 +32,13 @@ export async function runHonoHandler(
   request: Request,
   handler: (c: Context) => Response | Promise<Response>,
 ): Promise<Response> {
-  return handler(createHonoContext(request));
+  try {
+    return await handler(createHonoContext(request));
+  } catch (err) {
+    console.error("[runHonoHandler] unhandled error escaped handler:", err);
+    return Response.json(
+      { error: "An internal error occurred. Please try again." },
+      { status: 500 },
+    );
+  }
 }
