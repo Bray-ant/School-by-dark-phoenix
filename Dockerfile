@@ -38,4 +38,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Render injects the PORT env var dynamically; Next.js reads it automatically.
 EXPOSE 3000
 
-CMD ["npx", "next", "start"]
+# render.yaml's buildCommand is ignored when deploying via Dockerfile, so
+# the database schema push has to happen at container startup instead,
+# once DATABASE_URL is actually available in the runtime environment.
+CMD ["sh", "-c", "npx drizzle-kit push --force && npx next start"]
