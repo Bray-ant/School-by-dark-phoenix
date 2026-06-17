@@ -19,6 +19,17 @@ export function createHonoContext(request: Request): Context {
     res: {
       headers: responseHeaders,
     },
+    header: (name: string, value: string | undefined, options?: { append?: boolean }) => {
+      if (value === undefined) {
+        responseHeaders.delete(name);
+        return;
+      }
+      if (options?.append) {
+        responseHeaders.append(name, value);
+      } else {
+        responseHeaders.set(name, value);
+      }
+    },
     json: (body: unknown, status = 200) => {
       return Response.json(body, {
         status,

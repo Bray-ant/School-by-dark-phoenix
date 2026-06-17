@@ -15,10 +15,12 @@ function getOrigin(request: NextRequest): string {
   );
 }
 
-function isAllowedOrigin(origin: string): boolean {
+function isAllowedOrigin(origin: string, requestOrigin: string): boolean {
   if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
   if (origin.startsWith("http://localhost:")) return true;
+  // Allow the site's own origin (e.g. custom domains, preview deploys)
+  if (origin === requestOrigin) return true;
   return false;
 }
 
@@ -29,7 +31,7 @@ export function middleware(request: NextRequest) {
   // CSRF protection for mutating API requests
   if (pathname.startsWith("/api/") && method !== "GET" && method !== "HEAD") {
     const origin = getOrigin(request);
-    if (!isAllowedOrigin(origin)) {
+    if (!isAllowedOrigin(origin, request.nextUrl.origin)) {
       return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
   }
