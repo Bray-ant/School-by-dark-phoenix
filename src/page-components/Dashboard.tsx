@@ -24,7 +24,7 @@ export default function Dashboard() {
   const totalStudyTime = completedLessons * 15;
 
   const studySessions = (() => {
-    try { return JSON.parse(localStorage.getItem('forceform_sessions') || '[]'); }
+    try { return JSON.parse(localStorage.getItem('project_school_sessions') || '[]'); }
     catch { return []; }
   })();
 

@@ -25,12 +25,12 @@ interface Session {
 }
 
 function getStoredSessions(): Session[] {
-  try { return JSON.parse(localStorage.getItem('forceform_sessions') || '[]'); }
+  try { return JSON.parse(localStorage.getItem('project_school_sessions') || '[]'); }
   catch { return []; }
 }
 
 function saveSessions(sessions: Session[]) {
-  localStorage.setItem('forceform_sessions', JSON.stringify(sessions));
+  localStorage.setItem('project_school_sessions', JSON.stringify(sessions));
 }
 
 function formatTime(totalSeconds: number): string {

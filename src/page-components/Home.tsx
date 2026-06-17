@@ -483,7 +483,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-[#737373]">
             <Box className="w-3.5 h-3.5" />
-            <span>ForceForm Learn</span>
+            <span>Project school Learn</span>
             <span>•</span>
             <span>Technical Mechanics & Mathematics</span>
           </div>

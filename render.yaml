@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: forceform-learn
+    name: project-school
     runtime: node
     plan: starter
     buildCommand: npm install && npm run db:push && npm run build
@@ -30,7 +30,7 @@ services:
         sync: false
 
   - type: cron
-    name: forceform-reminders
+    name: project-school-reminders
     runtime: node
     schedule: "0 9 * * *"
     buildCommand: npm install

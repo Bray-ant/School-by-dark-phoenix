@@ -38,7 +38,7 @@ function AdminAnalytics() {
     exportToCsv(
       ['ID', 'Username', 'Email', 'Role', 'Verified', 'Created At'],
       allUsers.map((u: any) => [u.id, u.username, u.email, u.role, u.isVerified ? 'Yes' : 'No', u.createdAt]),
-      `forceform-users-${new Date().toISOString().split('T')[0]}.csv`
+      `project-school-users-${new Date().toISOString().split('T')[0]}.csv`
     );
   };
 
@@ -46,7 +46,7 @@ function AdminAnalytics() {
     exportToCsv(
       ['Timestamp', 'Action', 'Email', 'Success', 'Details'],
       auditLogs.map((l: any) => [l.timestamp, l.action, l.email || '', l.success ? 'Yes' : 'No', l.details || '']),
-      `forceform-audit-${new Date().toISOString().split('T')[0]}.csv`
+      `project-school-audit-${new Date().toISOString().split('T')[0]}.csv`
     );
   };
 

@@ -1,8 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = {
+  themeColor: "#060606",
+};
 
 export const metadata: Metadata = {
   title: "School by Dark Phoenix — Interactive Engineering Education",
@@ -17,10 +21,9 @@ export const metadata: Metadata = {
     "AI tutoring",
     "electronics learning",
     "electrical engineering",
-    "ForceForm",
+    "Project school",
   ],
   authors: [{ name: "Dark Phoenix" }],
-  themeColor: "#060606",
   manifest: "/manifest.json",
   icons: {
     apple: "/icon-192.png",
@@ -64,7 +67,7 @@ export default function RootLayout({
         {children}
         <div id="fallback-loader">
           <div className="spinner"></div>
-          <div>Loading ForceForm...</div>
+          <div>Loading Project school...</div>
         </div>
         <script src="/fallback-loader.js" />
       </body>

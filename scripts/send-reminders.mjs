@@ -33,10 +33,10 @@ function reminderHtml(username) {
   return `
     <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; color: #111;">
       <h2 style="color: #3b82f6;">Hi ${safe},</h2>
-      <p>We noticed you haven't opened ForceForm or completed any learning in the last 24 hours.</p>
+      <p>We noticed you haven't opened Project school or completed any learning in the last 24 hours.</p>
       <p>Keep your momentum going — even 10 minutes of practice makes a difference.</p>
-      <a href="https://study-by-dark-phoenix.netlify.app/" style="display:inline-block;padding:12px 24px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px;margin-top:12px;">Open ForceForm</a>
-      <p style="margin-top:24px;font-size:12px;color:#666;">You're receiving this because you signed up for ForceForm learning reminders.</p>
+      <a href="https://study-by-dark-phoenix.netlify.app/" style="display:inline-block;padding:12px 24px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px;margin-top:12px;">Open Project school</a>
+      <p style="margin-top:24px;font-size:12px;color:#666;">You're receiving this because you signed up for Project school learning reminders.</p>
     </div>
   `;
 }
@@ -67,9 +67,9 @@ async function main() {
 
       try {
         await transporter.sendMail({
-          from: `"ForceForm" <${fromEmail}>`,
+          from: `"Project school" <${fromEmail}>`,
           to: user.email,
-          subject: "Don't forget your daily learning — ForceForm",
+          subject: "Don't forget your daily learning — Project school",
           html: reminderHtml(user.username),
         });
         await conn.execute('UPDATE users SET lastReminderSentAt = ? WHERE id = ?', [now, user.id]);

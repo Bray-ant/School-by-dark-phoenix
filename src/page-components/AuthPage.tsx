@@ -341,7 +341,7 @@ export default function AuthPage() {
           <div className="w-12 h-12 rounded-2xl bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 flex items-center justify-center mx-auto mb-3">
             <Shield className="w-6 h-6 text-[#8b5cf6]" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">ForceForm</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Project school</h1>
           <p className="text-[11px] text-[#737373] mt-1">Secure Authentication</p>
         </div>
 
