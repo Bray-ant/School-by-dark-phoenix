@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useEffect } from 'react';
 import { Zap } from 'lucide-react';
 import { Section, EMCard, Formula, WorkedExample, PracticeExercise, DidYouKnow, Applications, MiniQuiz, EMControl } from './shared';

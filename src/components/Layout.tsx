@@ -1,5 +1,7 @@
-import { useLocation } from 'react-router-dom';
-import { useApp } from '../App';
+"use client";
+
+import { usePathname } from 'next/navigation';
+import { useApp } from '@/contexts/AppContext';
 import Navigation from './Navigation';
 import CommandPalette from './CommandPalette';
 import ToastContainer from './Toast';
@@ -14,10 +16,10 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { commandOpen, setCommandOpen } = useApp();
   const { toasts, removeToast } = useToast();
-  const location = useLocation();
+  const pathname = usePathname();
 
   // Full-screen pages that shouldn't show the footer
-  const isFullScreenPage = location.pathname === '/visual-lab' || location.pathname === '/dc-lab';
+  const isFullScreenPage = pathname === '/visual-lab' || pathname === '/dc-lab';
 
   return (
     <div className="min-h-screen bg-[#060606] text-[#f6f6f6] blueprint-grid flex flex-col">

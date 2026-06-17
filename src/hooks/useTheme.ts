@@ -2,17 +2,30 @@ import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'dark' | 'light' | 'system';
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'system';
+  try {
     return (localStorage.getItem('theme') as Theme) || 'system';
-  });
+  } catch {
+    return 'system';
+  }
+}
+
+function getSystemDark(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+export function useTheme() {
+  const [theme, setThemeState] = useState<Theme>(() => getInitialTheme());
 
   const applyTheme = useCallback((t: Theme) => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
     root.classList.remove('dark', 'light');
     
     if (t === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const prefersDark = getSystemDark();
       if (prefersDark) root.classList.add('dark');
       else root.classList.add('light');
     } else {
@@ -22,10 +35,14 @@ export function useTheme() {
 
   useEffect(() => {
     applyTheme(theme);
-    localStorage.setItem('theme', theme);
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
   }, [theme, applyTheme]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (theme === 'system') {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       const handler = () => applyTheme('system');
@@ -43,7 +60,7 @@ export function useTheme() {
     });
   }, []);
 
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark = theme === 'dark' || (theme === 'system' && getSystemDark());
 
   return { theme, setTheme, toggleTheme, isDark };
 }

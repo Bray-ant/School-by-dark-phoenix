@@ -34,6 +34,7 @@ db/migrations/*.sql
 # TypeScript cache
 *.tsbuildinfo
 # Build outputs
+.next/
 dist/
 build/
 .netlify/

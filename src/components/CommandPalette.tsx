@@ -1,6 +1,8 @@
+"use client";
+
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../App';
+import { useRouter } from 'next/navigation';
+import { useApp } from '@/contexts/AppContext';
 import { exercises, topicColors } from '../data/mathExercisesData';
 import { dcChapterList } from '../data/dcCircuitData';
 import { Search, FileText, BookOpen, Calculator, Compass, LayoutDashboard, Sparkles, Dices, Trophy, CircuitBoard, Microscope, Brain, MessageCircle, Headphones, Radio, Sigma, FunctionSquare, Grid3X3, CircleDot, Infinity as InfinityIcon, Divide, ZapOff, Gamepad2 } from 'lucide-react';
@@ -14,7 +16,7 @@ export default function CommandPalette({ onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Math module sub-items (appear under Advanced Mathematics section)
   const mathModuleItems: SearchItem[] = [
@@ -113,12 +115,12 @@ export default function CommandPalette({ onClose }: CommandPaletteProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(p => (p + 1) % flatItems.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(p => (p - 1 + flatItems.length) % flatItems.length); }
-      else if (e.key === 'Enter' && flatItems[selectedIndex]) { navigate(flatItems[selectedIndex].path); onClose(); }
+      else if (e.key === 'Enter' && flatItems[selectedIndex]) { router.push(flatItems[selectedIndex].path); onClose(); }
       else if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [flatItems, selectedIndex, navigate, onClose]);
+  }, [flatItems, selectedIndex, router, onClose]);
 
   const getIcon = (item: SearchItem) => {
     if (item.type === 'chapter') return <BookOpen className="w-4 h-4" style={{ color: item.color }} />;
@@ -180,7 +182,7 @@ export default function CommandPalette({ onClose }: CommandPaletteProps) {
                 flatIndex++;
                 const isSelected = flatIndex === selectedIndex;
                 return (
-                  <button key={item.id} onClick={() => { navigate(item.path); onClose(); }} onMouseEnter={() => setSelectedIndex(flatIndex)}
+                  <button key={item.id} onClick={() => { router.push(item.path); onClose(); }} onMouseEnter={() => setSelectedIndex(flatIndex)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? 'bg-[rgba(59,130,246,0.15)]' : 'hover:bg-white/5'}`}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>{getIcon(item)}</div>
                     <div className="flex-1 min-w-0">

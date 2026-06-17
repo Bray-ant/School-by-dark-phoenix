@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 import { Play, RotateCcw, Plus, Minus, Zap, Eye, Settings2 } from 'lucide-react';

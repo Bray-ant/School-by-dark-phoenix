@@ -1,3 +1,5 @@
+"use client";
+
 import { Infinity as InfiniteIcon } from 'lucide-react';
 import { MSection, MCard, MFormula, WorkedEx, Caution, Exercises, MQuiz } from './shared';
 

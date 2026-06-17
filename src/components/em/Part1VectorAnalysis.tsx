@@ -1,3 +1,5 @@
+"use client";
+
 import { Compass } from 'lucide-react';
 import { Section, EMCard, Formula, DidYouKnow } from './shared';
 

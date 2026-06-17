@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useRouter } from "next/navigation";
 import { useAuth as useAuthContext } from "@/contexts/AuthContext";
 import { LOGIN_PATH } from "@/const";
 
@@ -10,16 +10,16 @@ type UseAuthOptions = {
 
 export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } = options ?? {};
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const ctx = useAuthContext();
 
   const logout = useCallback(async () => {
     await ctx.logout();
     if (redirectOnUnauthenticated) {
-      navigate(redirectPath);
+      router.push(redirectPath);
     }
-  }, [ctx, redirectOnUnauthenticated, redirectPath, navigate]);
+  }, [ctx, redirectOnUnauthenticated, redirectPath, router]);
 
   // Backwards-compatible shape for existing components
   return useMemo(

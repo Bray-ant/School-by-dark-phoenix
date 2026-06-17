@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   hashPassword,
@@ -63,7 +65,19 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+const FALLBACK_VALUE: AuthContextType = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+  rateLimitInfo: { locked: false },
+  login: async () => ({ success: false, error: 'Auth not ready' }),
+  register: async () => ({ success: false, error: 'Auth not ready', requiresOtp: false }),
+  verifyOtp: async () => ({ success: false, error: 'Auth not ready' }),
+  logout: async () => {},
+  refresh: async () => {},
+};
+
+function AuthProviderInner({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -255,8 +269,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <AuthContext.Provider value={FALLBACK_VALUE}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
+
+  return <AuthProviderInner>{children}</AuthProviderInner>;
+}
+
+export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider');
+  if (!ctx) {
+    return FALLBACK_VALUE;
+  }
   return ctx;
 }

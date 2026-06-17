@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useEffect } from 'react';
 import { Waves } from 'lucide-react';
 import { Section, EMCard, Formula, DidYouKnow, Applications, MiniQuiz } from './shared';

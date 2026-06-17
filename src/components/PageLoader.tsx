@@ -1,3 +1,5 @@
+"use client";
+
 export default function PageLoader() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center" role="status" aria-label="Loading page">

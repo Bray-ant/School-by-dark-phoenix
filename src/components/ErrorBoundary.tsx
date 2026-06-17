@@ -1,5 +1,7 @@
+"use client";
+
 import { Component, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 interface Props {
   children: ReactNode;
@@ -42,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 Refresh Page
               </button>
               <Link
-                to="/"
+                href="/"
                 onClick={() => this.setState({ hasError: false, error: null })}
                 className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
               >

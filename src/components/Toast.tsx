@@ -1,3 +1,5 @@
+"use client";
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from 'lucide-react';
 import type { Toast as ToastType } from '../hooks/useToast';
