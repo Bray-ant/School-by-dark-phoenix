@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { hashPassword } from '../utils/security';
 
-type View = 'login' | 'register' | 'verifyOtp' | 'forgotPassword' | 'resetPassword';
+type View = 'login' | 'register' | 'verifyOtp' | 'verifyExistingEmail' | 'forgotPassword' | 'resetPassword';
 
 // ── Password policy helpers ──
 
@@ -119,6 +119,10 @@ export default function AuthPage() {
   const [otpCode, setOtpCode] = useState('');
   const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
 
+  // Existing-account email verification state
+  const [verifyEmailCode, setVerifyEmailCode] = useState('');
+  const [verifyEmailDevCode, setVerifyEmailDevCode] = useState<string | null>(null);
+
   // Forgot/reset password
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
@@ -143,8 +147,58 @@ export default function AuthPage() {
     if (!loginEmail || !loginPw) { showToast('Please fill in all fields.', 'error'); return; }
     setLoading(true);
     const result = await login(loginEmail, loginPw);
-    if (result.success) { showToast('Welcome back!', 'success'); }
-    else { showToast(result.error || 'Login failed.', 'error'); }
+    if (result.success) {
+      showToast('Welcome back!', 'success');
+    } else if (result.error?.toLowerCase().includes('verify your email')) {
+      showToast('Your email is not verified yet. Sending a verification code...', 'error');
+      await handleSendVerifyEmailCode();
+    } else {
+      showToast(result.error || 'Login failed.', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleSendVerifyEmailCode = async () => {
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, purpose: 'VERIFY_EMAIL' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (data.otp) setVerifyEmailDevCode(data.otp);
+        setVerifyEmailCode('');
+        setView('verifyExistingEmail');
+        showToast(data.otp ? 'Verification code generated (dev mode).' : 'A verification code has been sent to your email.', 'success');
+      } else {
+        showToast(data.error || 'Failed to send verification code.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    }
+  };
+
+  const handleVerifyExistingEmail = async () => {
+    if (!verifyEmailCode) { showToast('Enter the verification code.', 'error'); return; }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-existing-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, otp: verifyEmailCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showToast('Email verified! Please sign in.', 'success');
+        setVerifyEmailCode(''); setVerifyEmailDevCode(null);
+        setView('login');
+      } else {
+        showToast(data.error || 'Verification failed.', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    }
     setLoading(false);
   };
 
@@ -527,6 +581,46 @@ export default function AuthPage() {
                 </button>
 
                 <button onClick={handleResendOtp} disabled={loading}
+                  className="w-full mt-2 py-2 text-[10px] text-[#737373] hover:text-white transition-colors">
+                  Didn&apos;t receive it? <span className="text-[#3b82f6] font-medium">Resend Code</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {view === 'verifyExistingEmail' && (
+            <motion.div key="verify-existing" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+              <div className="rounded-2xl border border-white/10 bg-[#111118]/80 p-6">
+                <button onClick={() => setView('login')} className="flex items-center gap-1 text-[10px] text-[#737373] hover:text-white mb-3 transition-colors">
+                  <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                </button>
+                <h2 className="text-sm font-semibold mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-[#3b82f6]" /> Verify Your Email</h2>
+                <p className="text-[10px] text-[#737373] mb-4">
+                  Enter the 6-digit code sent to <span className="text-[#a3a3a3] font-medium">{loginEmail}</span>
+                </p>
+
+                {verifyEmailDevCode && (
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20">
+                    <p className="text-[10px] text-[#f59e0b]">Dev mode — your code is: <span className="font-mono font-bold tracking-widest">{verifyEmailDevCode}</span></p>
+                  </div>
+                )}
+
+                <div className="relative mb-3">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#525252]" />
+                  <input value={verifyEmailCode} onChange={e => setVerifyEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onKeyDown={e => e.key === 'Enter' && handleVerifyExistingEmail()}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-[#f6f6f6] outline-none focus:border-[#3b82f6]/30 placeholder-[#525252] font-mono tracking-[0.5em] text-center"
+                    placeholder="000000" maxLength={6} inputMode="numeric" />
+                </div>
+
+                <p className="text-[9px] text-[#525252] mb-3">Code expires in 10 minutes. Do not share it with anyone.</p>
+
+                <button onClick={handleVerifyExistingEmail} disabled={loading || verifyEmailCode.length !== 6}
+                  className="w-full py-2.5 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
+                  {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle className="w-3.5 h-3.5" /> Verify Email</>}
+                </button>
+
+                <button onClick={handleSendVerifyEmailCode} disabled={loading}
                   className="w-full mt-2 py-2 text-[10px] text-[#737373] hover:text-white transition-colors">
                   Didn&apos;t receive it? <span className="text-[#3b82f6] font-medium">Resend Code</span>
                 </button>

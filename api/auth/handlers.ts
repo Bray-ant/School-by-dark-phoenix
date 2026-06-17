@@ -617,11 +617,82 @@ export function createResendOtpHandler() {
         firstName?: string;
       }>();
       const email = body.email?.toLowerCase().trim();
-      const purpose = body.purpose === "RESET_PASSWORD" ? "RESET_PASSWORD" : "REGISTER";
+      const purpose =
+        body.purpose === "RESET_PASSWORD"
+          ? "RESET_PASSWORD"
+          : body.purpose === "VERIFY_EMAIL"
+          ? "VERIFY_EMAIL"
+          : "REGISTER";
       const firstName = body.firstName?.trim();
 
       if (!email) {
         return c.json({ error: "Email is required" }, 400);
+      }
+
+      if (purpose === "VERIFY_EMAIL") {
+        const db = getDb();
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        // Don't reveal whether the account exists or is already verified.
+        const genericResponse = {
+          success: true,
+          message: "If an unverified account exists for this email, a verification code has been sent.",
+        };
+
+        if (!user || user.emailVerified) {
+          return c.json(genericResponse);
+        }
+
+        await db
+          .update(otpTokens)
+          .set({ used: 1 })
+          .where(
+            and(
+              eq(otpTokens.email, email),
+              eq(otpTokens.purpose, "VERIFY_EMAIL"),
+              eq(otpTokens.used, 0),
+            ),
+          );
+
+        const otp = generateOtp();
+        const otpHash = hashToken(otp);
+        const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+        await db.insert(otpTokens).values({
+          email,
+          otp: otpHash,
+          purpose: "VERIFY_EMAIL",
+          expiresAt,
+        });
+
+        const { ip } = getClientInfo(c);
+        const emailSent = await sendOtpEmail(
+          email,
+          otp,
+          "registration",
+          user.firstName || user.username,
+          ip,
+          new Date().toISOString(),
+        );
+
+        recordActivity(c, {
+          userId: user.id,
+          email,
+          action: "RESEND_OTP",
+          success: true,
+          details: emailSent
+            ? "Verify-email OTP sent via email"
+            : "Verify-email OTP generated (no SMTP)",
+        });
+
+        if (!emailSent) {
+          return c.json({ ...genericResponse, otp });
+        }
+        return c.json(genericResponse);
       }
 
       const db = getDb();
@@ -676,6 +747,129 @@ export function createResendOtpHandler() {
       return c.json({ success: true });
     } catch (err) {
       console.error("[resend-otp] unexpected error:", err);
+      return c.json(
+        { error: "An internal error occurred. Please try again." },
+        500,
+      );
+    }
+  };
+}
+
+// ── Verify Existing Account's Email (post-signup re-verification) ─
+
+export function createVerifyExistingEmailHandler() {
+  return async (c: Context) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+
+    try {
+      const body = await c.req.json<{ email?: string; otp?: string }>();
+      const email = body.email?.toLowerCase().trim();
+      const otp = body.otp?.trim();
+
+      if (!email || !otp) {
+        return c.json({ error: "Email and verification code are required" }, 400);
+      }
+
+      const db = getDb();
+      const otpHash = hashToken(otp);
+
+      const [record] = await db
+        .select()
+        .from(otpTokens)
+        .where(
+          and(
+            eq(otpTokens.email, email),
+            eq(otpTokens.otp, otpHash),
+            eq(otpTokens.purpose, "VERIFY_EMAIL"),
+            eq(otpTokens.used, 0),
+            gt(otpTokens.expiresAt, new Date()),
+          ),
+        )
+        .limit(1);
+
+      if (!record) {
+        const [existing] = await db
+          .select()
+          .from(otpTokens)
+          .where(
+            and(
+              eq(otpTokens.email, email),
+              eq(otpTokens.purpose, "VERIFY_EMAIL"),
+              eq(otpTokens.used, 0),
+              gt(otpTokens.expiresAt, new Date()),
+            ),
+          )
+          .limit(1);
+
+        if (existing) {
+          const newAttempts = (existing.attempts ?? 0) + 1;
+          await db
+            .update(otpTokens)
+            .set({ attempts: newAttempts })
+            .where(eq(otpTokens.id, existing.id));
+
+          if (newAttempts >= MAX_OTP_ATTEMPTS) {
+            await db
+              .update(otpTokens)
+              .set({ used: 1 })
+              .where(eq(otpTokens.id, existing.id));
+
+            recordActivity(c, {
+              email,
+              action: "VERIFY_EMAIL",
+              success: false,
+              details: "Max attempts exceeded — OTP invalidated",
+            });
+            return c.json(
+              { error: "Too many invalid attempts. Please request a new verification code." },
+              429,
+            );
+          }
+        }
+
+        recordActivity(c, {
+          email,
+          action: "VERIFY_EMAIL",
+          success: false,
+          details: "Invalid or expired OTP",
+        });
+        return c.json({ error: "Invalid or expired verification code" }, 400);
+      }
+
+      await db
+        .update(otpTokens)
+        .set({ used: 1 })
+        .where(eq(otpTokens.id, record.id));
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (!user) {
+        return c.json({ error: "Account not found" }, 404);
+      }
+
+      await db
+        .update(users)
+        .set({ emailVerified: 1, isVerified: 1 })
+        .where(eq(users.id, user.id));
+
+      recordActivity(c, {
+        userId: user.id,
+        username: user.username,
+        email,
+        action: "VERIFY_EMAIL",
+        success: true,
+        details: "Existing account email verified",
+      });
+
+      return c.json({ success: true });
+    } catch (err) {
+      console.error("[verify-existing-email] unexpected error:", err);
       return c.json(
         { error: "An internal error occurred. Please try again." },
         500,
