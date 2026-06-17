@@ -258,8 +258,7 @@ export default function AuthPage() {
           'success',
         );
       } else {
-        showToast('If an account exists, a password reset email has been sent.', 'success');
-        setView('resetPassword');
+        showToast(data.error || 'Something went wrong. Please try again.', 'error');
       }
     } catch {
       showToast('Request failed.', 'error');
