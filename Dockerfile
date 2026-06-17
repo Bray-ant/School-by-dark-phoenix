@@ -33,8 +33,9 @@ COPY --from=builder /app/components.json ./
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Render injects the PORT env var dynamically; Next.js reads it automatically.
 EXPOSE 3000
 
 CMD ["npx", "next", "start"]
