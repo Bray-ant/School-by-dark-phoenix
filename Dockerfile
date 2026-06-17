@@ -18,7 +18,6 @@ WORKDIR /app
 
 # Copy built app
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/api ./api
 COPY --from=builder /app/db ./db
