@@ -6,7 +6,7 @@ import * as relations from "@db/relations";
 
 const fullSchema = { ...schema, ...relations };
 
-let instance: ReturnType<typeof drizzle<typeof fullSchema>>;
+let instance: ReturnType<typeof drizzle<typeof fullSchema>> | undefined;
 
 export function getDb() {
   if (!instance) {
@@ -17,7 +17,7 @@ export function getDb() {
     instance = drizzle(pool, {
       mode: "planetscale",
       schema: fullSchema,
-    });
+    }) as unknown as ReturnType<typeof drizzle<typeof fullSchema>>;
   }
   return instance;
 }

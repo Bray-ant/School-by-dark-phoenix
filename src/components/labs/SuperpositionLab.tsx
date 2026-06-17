@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { LabLayout, LabControls } from './shared';
 import type { SliderConfig } from './shared';

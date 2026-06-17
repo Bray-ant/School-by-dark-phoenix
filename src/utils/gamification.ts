@@ -94,6 +94,7 @@ export function getDefaultStats(): UserStats {
 }
 
 export function loadStats(): UserStats {
+  if (typeof window === 'undefined') return getDefaultStats();
   try {
     const saved = localStorage.getItem(XP_KEY);
     if (saved) return { ...getDefaultStats(), ...JSON.parse(saved) };
@@ -102,6 +103,7 @@ export function loadStats(): UserStats {
 }
 
 function saveStats(stats: UserStats) {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(XP_KEY, JSON.stringify(stats));
 }
 

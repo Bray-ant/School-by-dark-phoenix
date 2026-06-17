@@ -1,0 +1,84 @@
+"use client";
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { useApp } from '@/contexts/AppContext';
+import { Box, Orbit, Zap, BookOpen, CheckCircle, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const chapterIcons: Record<string, React.ReactNode> = {
+  stereostatics: <Box className="w-6 h-6" />,
+  kinematics: <Orbit className="w-6 h-6" />,
+  kinetics: <Zap className="w-6 h-6" />,
+};
+
+export default function ChapterPage() {
+  const params = useParams<{ chapterId: string }>();
+  const chapterId = params?.chapterId;
+  const { chapterList } = useApp();
+  const chapter = chapterList.find(c => c.id === chapterId);
+
+  if (!chapter) return <div className="py-20 text-center text-[#737373]">Chapter not found</div>;
+
+  const totalLessons = chapter.sections.reduce((a, s) => a + s.lessons.length, 0);
+  const doneLessons = chapter.sections.reduce((a, s) => a + s.lessons.filter(l => l.completed).length, 0);
+
+  return (
+    <div className="min-h-screen py-8 px-6">
+      <div className="max-w-4xl mx-auto">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${chapter.color}15`, border: `1px solid ${chapter.color}30` }}>
+              <span style={{ color: chapter.color }}>{chapterIcons[chapter.id]}</span>
+            </div>
+            <div>
+              <div className="text-xs font-mono text-[#737373]">CHAPTER {String(chapter.number).padStart(2, '0')}</div>
+              <h1 className="text-3xl font-semibold tracking-tight">{chapter.title}</h1>
+            </div>
+          </div>
+          <p className="text-sm text-[#737373] max-w-xl">{chapter.description}</p>
+          <div className="flex items-center gap-4 mt-4 text-xs text-[#737373]">
+            <span>{totalLessons} lessons</span>
+            <span>{doneLessons} completed</span>
+            <span>{chapter.sections.length} sections</span>
+          </div>
+        </motion.div>
+
+        <div className="space-y-6">
+          {chapter.sections.map((section, si) => (
+            <motion.div key={section.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: si * 0.1 }} className="glass-panel rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpen className="w-4 h-4" style={{ color: chapter.color }} />
+                <h2 className="text-sm font-semibold">{section.title}</h2>
+                <span className="text-xs text-[#737373] ml-auto">{section.lessons.length} lessons</span>
+              </div>
+              <div className="space-y-2">
+                {section.lessons.map((lesson) => (
+                  <Link
+                    key={lesson.id}
+                    href={`/chapter/${chapter.id}/section/${section.id}/lesson/${lesson.id}`}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group"
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${lesson.completed ? 'bg-[#10b981]/15' : 'bg-white/5'}`}>
+                      {lesson.completed ? <CheckCircle className="w-4 h-4 text-[#10b981]" /> : <BookOpen className="w-4 h-4 text-[#737373]" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{lesson.title}</div>
+                      <div className="flex items-center gap-2 text-[10px] text-[#737373]">
+                        <span>{lesson.duration}</span>
+                        <span>•</span>
+                        <span className="capitalize">{lesson.difficulty}</span>
+                        <span>•</span>
+                        <span className="capitalize">{lesson.type}</span>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-[#737373] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

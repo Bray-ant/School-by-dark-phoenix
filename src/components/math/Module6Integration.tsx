@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { Divide } from 'lucide-react';
 import { MSection, MCard, MFormula, WorkedEx, Caution, Exercises, MQuiz } from './shared';

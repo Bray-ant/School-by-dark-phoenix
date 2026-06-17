@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, ArrowRight, RotateCcw, Sparkles, Trophy } from 'lucide-react';

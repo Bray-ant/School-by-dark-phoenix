@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X, Lightbulb, BookOpen, Sparkles } from 'lucide-react';

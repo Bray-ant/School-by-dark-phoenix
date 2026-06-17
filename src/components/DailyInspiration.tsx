@@ -1,5 +1,7 @@
+"use client";
+
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import {
   getTodaysQuote,
   getTodaysChallenge,
@@ -318,7 +320,7 @@ export default function DailyInspiration() {
           className="text-center"
         >
           <Link
-            to="/inspiration"
+            href="/inspiration"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-[#f6f6f6] text-sm font-medium rounded-xl border border-white/10 transition-colors"
           >
             <Archive className="w-4 h-4" />

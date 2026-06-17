@@ -1,26 +1,13 @@
 [build]
-  command = "npm run build && npm run build:netlify-function"
-  publish = "dist/public"
+  command = "npm run build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "22"
   NPM_FLAGS = "--legacy-peer-deps"
 
-# API routes are handled by the Netlify Function.
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-
-# SPA fallback: all non-asset routes serve the React app.
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Daily email reminders for inactive users
-[functions."send-reminders"]
-  schedule = "0 9 * * *"
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Never cache HTML so updates are picked up immediately.
 [[headers]]

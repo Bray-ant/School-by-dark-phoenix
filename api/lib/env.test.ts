@@ -15,7 +15,7 @@ describe("env module", () => {
   it("reads DATABASE_URL and SESSION_SECRET from process.env", async () => {
     process.env.DATABASE_URL = "mysql://test:test@localhost/testdb";
     process.env.SESSION_SECRET = "test-secret-123";
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "development";
 
     const { env } = await import("./env");
     expect(env.databaseUrl).toBe("mysql://test:test@localhost/testdb");
@@ -25,7 +25,7 @@ describe("env module", () => {
   it("uses defaults for optional variables", async () => {
     process.env.DATABASE_URL = "mysql://x";
     process.env.SESSION_SECRET = "s";
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "development";
     delete process.env.KIMI_API_KEY;
     delete process.env.SMTP_HOST;
     delete process.env.SMTP_PORT;
@@ -39,14 +39,14 @@ describe("env module", () => {
   it("isProduction reflects NODE_ENV", async () => {
     process.env.DATABASE_URL = "x";
     process.env.SESSION_SECRET = "s";
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
 
     const { env } = await import("./env");
     expect(env.isProduction).toBe(true);
   });
 
   it("throws when required var is missing in production", async () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     delete process.env.DATABASE_URL;
     delete process.env.SESSION_SECRET;
 
@@ -56,7 +56,7 @@ describe("env module", () => {
   });
 
   it("returns empty string for missing required var in development", async () => {
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "development";
     delete process.env.DATABASE_URL;
     delete process.env.SESSION_SECRET;
 

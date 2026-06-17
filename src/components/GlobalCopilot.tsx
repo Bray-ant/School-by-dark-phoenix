@@ -1,8 +1,10 @@
+"use client";
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { trpc } from '@/providers/trpc';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles, X, Send, Loader2, User, Brain, Zap, ChevronUp,
   Lightbulb, BookOpen, Calculator, FlaskConical, MessageSquare,
@@ -45,8 +47,15 @@ function isMathQuestion(q: string): boolean {
 }
 
 export default function GlobalCopilot() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return <GlobalCopilotInner />;
+}
+
+function GlobalCopilotInner() {
   const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'circuits' | 'math'>('all');
   const [messages, setMessages] = useState<CopilotMsg[]>([
@@ -324,7 +333,7 @@ export default function GlobalCopilot() {
                   {showActions ? 'Hide actions' : 'Show actions'}
                 </button>
                 <button
-                  onClick={() => { setOpen(false); navigate('/ai-tutor'); }}
+                  onClick={() => { setOpen(false); router.push('/ai-tutor'); }}
                   className="text-[9px] text-[#525252] hover:text-[#8b5cf6] transition-colors flex items-center gap-1"
                 >
                   <MessageSquare className="w-2.5 h-2.5" /> Full Tutor

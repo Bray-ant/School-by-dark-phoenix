@@ -9,6 +9,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(templateRoot, "src"),
       "@contracts": path.resolve(templateRoot, "contracts"),
+      "@db": path.resolve(templateRoot, "db"),
+      "@api": path.resolve(templateRoot, "api"),
       "@assets": path.resolve(templateRoot, "attached_assets"),
     },
   },

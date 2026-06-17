@@ -1,3 +1,5 @@
+"use client";
+
 import { Grid3X3 } from 'lucide-react';
 import { MSection, MCard, MFormula, WorkedEx, Caution, Exercises, MQuiz, MTable } from './shared';
 
