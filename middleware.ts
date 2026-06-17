@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const allowedOrigins = [
   "http://localhost:3000",
   "https://school-by-dark-phoenix.onrender.com",
-  "https://forceform-learn.netlify.app",
+  "https://project-school.netlify.app",
 ];
 
 function getOrigin(request: NextRequest): string {

@@ -36,7 +36,7 @@ export default function Navigation() {
             <div className="w-8 h-8 rounded-lg bg-[#3b82f6]/20 border border-[#3b82f6]/30 flex items-center justify-center group-hover:bg-[#3b82f6]/30 transition-colors">
               <Box className="w-4 h-4 text-[#3b82f6]" />
             </div>
-            <span className="font-semibold text-sm tracking-tight">ForceForm</span>
+            <span className="font-semibold text-sm tracking-tight">Project school</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">

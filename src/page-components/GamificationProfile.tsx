@@ -27,7 +27,7 @@ export default function GamificationProfile() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'forceform-progress.csv';
+    a.download = 'project-school-progress.csv';
     a.click();
     URL.revokeObjectURL(url);
   };

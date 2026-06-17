@@ -30,14 +30,14 @@ const tabConfig = [
 ];
 
 function getLocalProgress(): Record<string, boolean> {
-  try { return JSON.parse(localStorage.getItem('forceform_progress') || '{}'); }
+  try { return JSON.parse(localStorage.getItem('project_school_progress') || '{}'); }
   catch { return {}; }
 }
 
 function setLocalProgress(lessonId: string) {
   const p = getLocalProgress();
   p[lessonId] = true;
-  localStorage.setItem('forceform_progress', JSON.stringify(p));
+  localStorage.setItem('project_school_progress', JSON.stringify(p));
 }
 
 function DCLessonPage() {

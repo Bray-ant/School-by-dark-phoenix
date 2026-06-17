@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "AI tutoring",
     "electronics learning",
     "electrical engineering",
-    "ForceForm",
+    "Project school",
   ],
   authors: [{ name: "Dark Phoenix" }],
   themeColor: "#060606",
@@ -64,7 +64,7 @@ export default function RootLayout({
         {children}
         <div id="fallback-loader">
           <div className="spinner"></div>
-          <div>Loading ForceForm...</div>
+          <div>Loading Project school...</div>
         </div>
         <script src="/fallback-loader.js" />
       </body>

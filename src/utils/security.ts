@@ -190,7 +190,7 @@ export function exportAuditLogs(filename?: string) {
   const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const date = new Date().toISOString().slice(0, 10);
-  const name = filename || `forceform-auth-log-${date}.json`;
+  const name = filename || `project-school-auth-log-${date}.json`;
 
   const a = document.createElement('a');
   a.href = url;

@@ -39,7 +39,7 @@ const categoryFilters = [
 
 function getLocalProgress(): Record<string, number> {
   try {
-    return JSON.parse(localStorage.getItem('forceform_progress') || '{}');
+    return JSON.parse(localStorage.getItem('project_school_progress') || '{}');
   } catch {
     return {};
   }
@@ -47,7 +47,7 @@ function getLocalProgress(): Record<string, number> {
 
 function getLocalStats() {
   try {
-    return JSON.parse(localStorage.getItem('forceform_stats') || '{}');
+    return JSON.parse(localStorage.getItem('project_school_stats') || '{}');
   } catch {
     return { totalSolved: 0, streakDays: 0, timeSpent: 0, perfectScores: 0 };
   }

@@ -52,7 +52,7 @@ export async function upsertUser(data: InsertUser) {
     ...data,
   };
 
-  if (values.role === undefined && values.email === "admin@forceform.com") {
+  if (values.role === undefined && values.email === "admin@projectschool.com") {
     values.role = "admin";
     updateSet.role = "admin";
   }
