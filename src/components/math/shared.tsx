@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X, Sparkles, BookOpen, AlertTriangle } from 'lucide-react';
+import Math from '../Math';
+import MathText from '../MathText';
 
 export function MSection({ id, icon, title, color, children }: { id: string; icon: React.ReactNode; title: string; color: string; children: React.ReactNode }) {
   return (
@@ -29,8 +31,10 @@ export function MFormula({ name, formula, note }: { name: string; formula: strin
   return (
     <div className="rounded-lg p-4 my-3" style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)' }}>
       <div className="text-[10px] text-[#00d4ff] uppercase tracking-wider mb-1">{name}</div>
-      <div className="text-lg text-white font-semibold font-mono mb-1" dangerouslySetInnerHTML={{ __html: formula }} />
-      {note && <div className="text-[11px] text-[#737373]" dangerouslySetInnerHTML={{ __html: note }} />}
+      <div className="text-lg text-white font-semibold mb-1">
+        <Math tex={formula} />
+      </div>
+      {note && <div className="text-[11px] text-[#737373]"><MathText text={note} /></div>}
     </div>
   );
 }
@@ -43,10 +47,10 @@ export function WorkedEx({ title, steps, answer }: { title: string; steps: strin
         <div className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-[#f59e0b]" /><span className="text-xs font-semibold text-[#f59e0b]">Worked Example</span></div>
         <button onClick={() => setShow(!show)} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#f59e0b]/10 text-[#f59e0b] hover:bg-[#f59e0b]/20 transition-all">{show ? 'Hide' : 'Show'}</button>
       </div>
-      <p className="text-xs text-[#d4d4d4] mb-2">{title}</p>
+      <p className="text-xs text-[#d4d4d4] mb-2"><MathText text={title} /></p>
       {show && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-1.5">
-        {steps.map((s, i) => <p key={i} className="text-[11px] text-[#a3a3a3] font-mono leading-relaxed" dangerouslySetInnerHTML={{ __html: `Step ${i + 1}: ${s}` }} />)}
-        <div className="mt-2 p-2 rounded bg-[#10b981]/10 border border-[#10b981]/20"><span className="text-[11px] text-[#10b981] font-semibold">Answer: </span><span className="text-[11px] text-[#10b981]" dangerouslySetInnerHTML={{ __html: answer }} /></div>
+        {steps.map((s, i) => <p key={i} className="text-[11px] text-[#a3a3a3] font-mono leading-relaxed"><MathText text={`Step ${i + 1}: ${s}`} /></p>)}
+        <div className="mt-2 p-2 rounded bg-[#10b981]/10 border border-[#10b981]/20"><span className="text-[11px] text-[#10b981] font-semibold">Answer: </span><span className="text-[11px] text-[#10b981]"><MathText text={answer} /></span></div>
       </motion.div>}
     </div>
   );
@@ -78,7 +82,7 @@ export function Exercises({ items }: { items: { q: string; level: string }[] }) 
         {items.map((ex, i) => (
           <li key={i} className="text-[11px] text-[#d4d4d4]">
             <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold mr-2 ${ex.level === 'Easy' ? 'bg-[#10b981]/15 text-[#10b981]' : ex.level === 'Medium' ? 'bg-[#f59e0b]/15 text-[#f59e0b]' : 'bg-[#ef4444]/15 text-[#ef4444]'}`}>{ex.level}</span>
-            <span dangerouslySetInnerHTML={{ __html: ex.q }} />
+            <MathText text={ex.q} />
           </li>
         ))}
       </ol>
@@ -96,7 +100,7 @@ export function MQuiz({ questions }: { questions: Q[] }) {
       <div className="space-y-4">
         {questions.map((q, qi) => (
           <div key={qi}>
-            <p className="text-[11px] text-[#d4d4d4] mb-2">{qi + 1}. {q.question}</p>
+            <p className="text-[11px] text-[#d4d4d4] mb-2">{qi + 1}. <MathText text={q.question} /></p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {q.options.map((opt, oi) => {
                 const sel = ans[qi] === oi, done = ans[qi] !== undefined, ok = oi === q.correct;
@@ -108,12 +112,12 @@ export function MQuiz({ questions }: { questions: Q[] }) {
                 return (
                   <button key={oi} onClick={() => handle(qi, oi)} disabled={done} className="text-left px-3 py-2 rounded-lg text-[11px] transition-all flex items-center gap-2" style={{ background: bg, border: `1px solid ${b}` }}>
                     {done && ok && <Check className="w-3 h-3 text-[#10b981] shrink-0" />}{done && sel && !ok && <X className="w-3 h-3 text-[#ef4444] shrink-0" />}
-                    <span className="text-[#a3a3a3]">{opt}</span>
+                    <span className="text-[#a3a3a3]"><MathText text={opt} /></span>
                   </button>
                 );
               })}
             </div>
-            {ans[qi] !== undefined && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] text-[#737373] mt-1.5 italic">{q.explanation}</motion.p>}
+            {ans[qi] !== undefined && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] text-[#737373] mt-1.5 italic"><MathText text={q.explanation} /></motion.p>}
           </div>
         ))}
       </div>
@@ -125,8 +129,8 @@ export function MTable({ headers, rows }: { headers: string[]; rows: string[][] 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[10px]">
-        <thead><tr className="border-b border-white/10">{headers.map((h, i) => <th key={i} className="text-left py-1.5 px-2 text-[#737373] font-medium">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((r, ri) => <tr key={ri} className="border-b border-white/5">{r.map((c, ci) => <td key={ci} className="py-1.5 px-2 text-[#a3a3a3]" dangerouslySetInnerHTML={{ __html: c }} />)}</tr>)}</tbody>
+        <thead><tr className="border-b border-white/10">{headers.map((h, i) => <th key={i} className="text-left py-1.5 px-2 text-[#737373] font-medium"><MathText text={h} /></th>)}</tr></thead>
+        <tbody>{rows.map((r, ri) => <tr key={ri} className="border-b border-white/5">{r.map((c, ci) => <td key={ci} className="py-1.5 px-2 text-[#a3a3a3]"><MathText text={c} /></td>)}</tr>)}</tbody>
       </table>
     </div>
   );

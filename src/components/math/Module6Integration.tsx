@@ -23,50 +23,50 @@ export default function Module6Integration() {
       </p>
 
       <MCard title="6.1 Fundamental Techniques" accent="#10b981">
-        <MFormula name="Power Rule" formula="&#8741; x&#8319; dx = x&#8319;&#8330;&#185;/(n+1) + C,  n &#8800; &#8722;1" note="Most basic rule. Extends to all real n except &#8722;1." />
-        <MFormula name="Integration by Parts" formula="&#8741; u dv = uv &#8722; &#8741; v du" note="Choose u by LIATE: Log, Inverse trig, Algebraic, Trig, Exponential." />
-        <MFormula name="Substitution" formula="&#8741; f(g(x))g&apos;(x) dx = &#8741; f(u) du" note="u = g(x), du = g&apos;(x)dx. Key skill: recognizing the pattern." />
-        <MFormula name="Partial Fractions" formula="P(x)/Q(x) = &#8721; A&#8331;/(x&#8722;r&#8331;) + ..." note="For rational functions. Factor Q, decompose, integrate each term." />
+        <MFormula name="Power Rule" formula="\\int x^n \\, dx = \\frac{x^{n+1}}{n+1} + C, \\quad n \\ne -1" note="Most basic rule. Extends to all real $n$ except $-1$." />
+        <MFormula name="Integration by Parts" formula="\\int u \\, dv = uv - \\int v \\, du" note="Choose $u$ by LIATE: Log, Inverse trig, Algebraic, Trig, Exponential." />
+        <MFormula name="Substitution" formula="\\int f(g(x)) g'(x) \\, dx = \\int f(u) \\, du" note="$u = g(x)$, $du = g'(x)\\,dx$. Key skill: recognizing the pattern." />
+        <MFormula name="Partial Fractions" formula="\\frac{P(x)}{Q(x)} = \\sum \\frac{A_i}{x - r_i} + \\dots" note="For rational functions. Factor $Q$, decompose, integrate each term." />
 
-        <WorkedEx title="&#8741; x e&#8331; dx by parts." steps={[
-          "u = x, dv = e&#8331;dx &#8594; du = dx, v = e&#8331;",
-          "&#8741; x e&#8331; dx = x e&#8331; &#8722; &#8741; e&#8331; dx",
-          "= x e&#8331; &#8722; e&#8331; + C",
-          "= e&#8331;(x &#8722; 1) + C"
-        ]} answer="e&#8331;(x &#8722; 1) + C" />
-        <WorkedEx title="&#8741; sin&#178;(x) dx." steps={[
-          "Use identity: sin&#178;(x) = (1 &#8722; cos(2x))/2",
-          "&#8741; sin&#178;(x) dx = &#8741; (1/2 &#8722; cos(2x)/2) dx",
-          "= x/2 &#8722; sin(2x)/4 + C"
-        ]} answer="x/2 &#8722; sin(2x)/4 + C" />
+        <WorkedEx title="$\\int x e^x \\, dx$ by parts." steps={[
+          "$u = x,\\ dv = e^x \\, dx \\Rightarrow du = dx,\\ v = e^x$",
+          "$\\int x e^x \\, dx = x e^x - \\int e^x \\, dx$",
+          "$= x e^x - e^x + C$",
+          "$= e^x(x - 1) + C$"
+        ]} answer="$e^x(x - 1) + C$" />
+        <WorkedEx title="$\\int \\sin^2(x) \\, dx$." steps={[
+          "Use identity: $\\sin^2(x) = \\frac{1 - \\cos(2x)}{2}$",
+          "$\\int \\sin^2(x) \\, dx = \\int \\left(\\frac{1}{2} - \\frac{\\cos(2x)}{2}\\right) dx$",
+          "$= \\frac{x}{2} - \\frac{\\sin(2x)}{4} + C$"
+        ]} answer="$\\frac{x}{2} - \\frac{\\sin(2x)}{4} + C$" />
         <Exercises items={[
-          { q: "&#8741; x ln(x) dx.", level: 'Easy' },
-          { q: "&#8741; dx/(x&#178; &#8722; 1) using partial fractions.", level: 'Medium' },
-          { q: "&#8741; e&#8331; sin(x) dx (integrate by parts twice).", level: 'Hard' },
+          { q: "$\\int x \\ln(x) \\, dx$.", level: 'Easy' },
+          { q: "$\\int \\frac{dx}{x^2 - 1}$ using partial fractions.", level: 'Medium' },
+          { q: "$\\int e^x \\sin(x) \\, dx$ (integrate by parts twice).", level: 'Hard' },
         ]} />
       </MCard>
 
       <MCard title="6.2 Improper Integrals" accent="#10b981">
-        <MFormula name="Infinite Limit" formula="&#8741;&#8334;&#8734; f(x) dx = lim&#8338;&#8594;&#8734; &#8741;&#8334;&#8338; f(x) dx" note="Take limit. If limit exists = finite, integral converges." />
-        <MFormula name="Unbounded Integrand" formula="&#8741;&#8334;&#8338; f(x) dx = lim&#8339;&#8594;a&#8314; &#8741;&#8339;&#8338; f(x) dx" note="If f &#8594; &#8734; at x = a, split at singularity." />
-        <MFormula name="p-test (infinite)" formula="&#8741;&#8321;&#8734; dx/x&#8319; converges iff p &gt; 1" note="Fundamental test. Analogous to p-series." />
-        <MFormula name="Comparison Test" formula="0 &#8804; f(x) &#8804; g(x): if &#8741; g converges, then &#8741; f converges" note="If &#8741; f diverges, then &#8741; g diverges (contrapositive)." />
-        <WorkedEx title="Does &#8741;&#8321;&#8734; dx/x&#178; converge? If so, evaluate." steps={[
-          "p = 2 &gt; 1 &#8594; converges by p-test",
-          "&#8741;&#8321;&#8734; x&#8315;&#178; dx = lim&#8338;&#8594;&#8734; [&#8722;x&#8315;&#185;]&#8321;&#8338;",
-          "= lim&#8338;&#8594;&#8734; (&#8722;1/b + 1) = 1"
+        <MFormula name="Infinite Limit" formula="\\int_a^\\infty f(x) \\, dx = \\lim_{b \\to \\infty} \\int_a^b f(x) \\, dx" note="Take limit. If limit exists = finite, integral converges." />
+        <MFormula name="Unbounded Integrand" formula="\\int_a^b f(x) \\, dx = \\lim_{t \\to a^+} \\int_t^b f(x) \\, dx" note="If $f \\to \\infty$ at $x = a$, split at singularity." />
+        <MFormula name="p-test (infinite)" formula="\\int_1^\\infty \\frac{dx}{x^p} \\text{ converges iff } p > 1" note="Fundamental test. Analogous to p-series." />
+        <MFormula name="Comparison Test" formula="0 \\le f(x) \\le g(x): \\text{ if } \\int g \\text{ converges, then } \\int f \\text{ converges}" note="If $\\int f$ diverges, then $\\int g$ diverges (contrapositive)." />
+        <WorkedEx title="Does $\\int_1^\\infty \\frac{dx}{x^2}$ converge? If so, evaluate." steps={[
+          "$p = 2 > 1 \\Rightarrow$ converges by $p$-test",
+          "$\\int_1^\\infty x^{-2} \\, dx = \\lim_{b \\to \\infty} \\left[-x^{-1}\\right]_1^b$",
+          "$= \\lim_{b \\to \\infty} (-1/b + 1) = 1$"
         ]} answer="Converges to 1." />
         <Exercises items={[
-          { q: "Does &#8741;&#8321;&#8734; dx/x&#179;/&#178; converge? Evaluate if yes.", level: 'Easy' },
-          { q: "Does &#8741;&#8320;&#8321; dx/&#8730;x converge?", level: 'Medium' },
-          { q: "Does &#8741;&#8320;&#8734; dx/(x&#178;+1) converge? Evaluate.", level: 'Hard' },
+          { q: "Does $\\int_1^\\infty \\frac{dx}{x^{3/2}}$ converge? Evaluate if yes.", level: 'Easy' },
+          { q: "Does $\\int_0^1 \\frac{dx}{\\sqrt{x}}$ converge?", level: 'Medium' },
+          { q: "Does $\\int_0^\\infty \\frac{dx}{x^2 + 1}$ converge? Evaluate.", level: 'Hard' },
         ]} />
       </MCard>
 
       <MCard title="6.3 Numerical Integration" accent="#10b981">
-        <MFormula name="Trapezoidal Rule" formula="&#8741;&#8334;&#8338; f(x) dx &#8776; (b&#8722;a)/2 &#183; [f(a) + f(b)]" note="Error: &#8722;(b&#8722;a)&#179;/12 &#183; f&apos;&apos;(&#958;). Exact for linear functions." />
-        <MFormula name="Midpoint Rule" formula="&#8741;&#8334;&#8338; f(x) dx &#8776; (b&#8722;a) &#183; f((a+b)/2)" note="Error: (b&#8722;a)&#179;/24 &#183; f&apos;&apos;(&#958;). Often better than trapezoidal." />
-        <MFormula name="Simpson&apos;s Rule" formula="&#8741;&#8334;&#8338; f(x) dx &#8776; (b&#8722;a)/6 &#183; [f(a) + 4f(m) + f(b)]" note="m = (a+b)/2. Error: &#8722;(b&#8722;a)&#8309;/2880 &#183; f&#8308;(&#958;). Exact for cubics." />
+        <MFormula name="Trapezoidal Rule" formula="\\int_a^b f(x) \\, dx \\approx \\frac{b-a}{2} \\left[f(a) + f(b)\\right]" note="Error: $-\\frac{(b-a)^3}{12} f''(\\xi)$. Exact for linear functions." />
+        <MFormula name="Midpoint Rule" formula="\\int_a^b f(x) \\, dx \\approx (b-a) \\cdot f\\left(\\frac{a+b}{2}\\right)" note="Error: $\\frac{(b-a)^3}{24} f''(\\xi)$. Often better than trapezoidal." />
+        <MFormula name="Simpson&apos;s Rule" formula="\\int_a^b f(x) \\, dx \\approx \\frac{b-a}{6} \\left[f(a) + 4f(m) + f(b)\\right]" note="$m = \\frac{a+b}{2}$. Error: $-\\frac{(b-a)^5}{2880} f^{(4)}(\\xi)$. Exact for cubics." />
 
         <div className="mt-3 p-3 rounded-lg" style={{ background: 'rgba(16,185,129,0.06)' }}>
           <div className="text-[10px] text-[#10b981] mb-2">Interactive: Numerical Integration Comparison</div>
@@ -87,41 +87,41 @@ export default function Module6Integration() {
           </div>
         </div>
 
-        <WorkedEx title="Approximate &#8741;&#8320;&#185; x&#178; dx using trapezoidal and Simpson's rules." steps={[
-          "True: &#8741;&#8320;&#185; x&#178; dx = 1/3 &#8776; 0.3333",
-          "Trapezoidal: (1/2)[0 + 1] = 0.5. Error = 0.1667",
-          "Simpson: (1/6)[0 + 4(0.5)&#178; + 1] = (1/6)[0 + 1 + 1] = 1/3",
-          "Simpson gives <strong>exact</strong> answer (x&#178; is degree 2, Simpson exact for degree &#8804; 3)"
-        ]} answer="Trapezoidal: 0.5 (error 50%). Simpson: 1/3 exact." />
+        <WorkedEx title="Approximate $\\int_0^1 x^2 \\, dx$ using trapezoidal and Simpson's rules." steps={[
+          "True: $\\int_0^1 x^2 \\, dx = \\frac{1}{3} \\approx 0.3333$",
+          "Trapezoidal: $\\frac{1}{2}[0 + 1] = 0.5$. Error $= 0.1667$",
+          "Simpson: $\\frac{1}{6}[0 + 4(0.5)^2 + 1] = \\frac{1}{6}[0 + 1 + 1] = \\frac{1}{3}$",
+          "Simpson gives <strong>exact</strong> answer ($x^2$ is degree 2, Simpson exact for degree $\\le 3$)"
+        ]} answer="Trapezoidal: $0.5$ (error $50\\%$). Simpson: $\\frac{1}{3}$ exact." />
         <Caution>Simpson's rule requires <strong>even number of subintervals</strong> (odd number of points). Don't apply it blindly. For composite rules, divide [a,b] into n equal subintervals first.</Caution>
         <Exercises items={[
-          { q: "Approximate &#8741;&#8320;&#185; e&#8331; dx using trapezoidal rule.", level: 'Easy' },
-          { q: "Use Simpson's rule with n=4 for &#8741;&#8320;&#185; dx/(1+x&#178;).", level: 'Medium' },
-          { q: "Compare trapezoidal error bound for &#8741;&#8320;&#185; sin(x) dx.", level: 'Hard' },
+          { q: "Approximate $\\int_0^1 e^x \\, dx$ using trapezoidal rule.", level: 'Easy' },
+          { q: "Use Simpson's rule with $n=4$ for $\\int_0^1 \\frac{dx}{1+x^2}$.", level: 'Medium' },
+          { q: "Compare trapezoidal error bound for $\\int_0^1 \\sin(x) \\, dx$.", level: 'Hard' },
         ]} />
       </MCard>
 
       <MCard title="6.4 Engineering Applications" accent="#10b981">
-        <MFormula name="Area Between Curves" formula="A = &#8741;&#8334;&#8338; [f(x) &#8722; g(x)] dx" note="f(x) &#8805; g(x) on [a,b]." />
-        <MFormula name="Volume of Revolution" formula="V = &#120529; &#8741;&#8334;&#8338; [f(x)]&#178; dx" note="Disk method: rotating y=f(x) about x-axis." />
-        <MFormula name="Arc Length" formula="L = &#8741;&#8334;&#8338; &#8730;(1 + [f&apos;(x)]&#178;) dx" note="Pythagorean theorem applied to infinitesimal segments." />
-        <MFormula name="Center of Mass (x̄)" formula="x̄ = (1/A) &#8741;&#8334;&#8338; x f(x) dx" note="A = &#8741; f(x) dx. First moment divided by total area." />
-        <MFormula name="Work by Variable Force" formula="W = &#8741;&#8334;&#8338; F(x) dx" note="F(x) = force as function of position." />
-        <WorkedEx title="Find the volume when y = &#8730;x from x=0 to x=4 is rotated about x-axis." steps={[
-          "V = &#120529; &#8741;&#8320;&#8316; (&#8730;x)&#178; dx = &#120529; &#8741;&#8320;&#8316; x dx",
-          "= &#120529; [x&#178;/2]&#8320;&#8316; = &#120529; (16/2 &#8722; 0) = 8&#120529;"
-        ]} answer="V = 8&#120529; &#8776; 25.13 cubic units" />
+        <MFormula name="Area Between Curves" formula="A = \\int_a^b [f(x) - g(x)] \\, dx" note="$f(x) \\ge g(x)$ on $[a,b]$." />
+        <MFormula name="Volume of Revolution" formula="V = \\pi \\int_a^b [f(x)]^2 \\, dx" note="Disk method: rotating $y=f(x)$ about $x$-axis." />
+        <MFormula name="Arc Length" formula="L = \\int_a^b \\sqrt{1 + [f'(x)]^2} \\, dx" note="Pythagorean theorem applied to infinitesimal segments." />
+        <MFormula name="Center of Mass (x̄)" formula="\\bar{x} = \\frac{1}{A} \\int_a^b x f(x) \\, dx" note="$A = \\int f(x) \\, dx$. First moment divided by total area." />
+        <MFormula name="Work by Variable Force" formula="W = \\int_a^b F(x) \\, dx" note="$F(x) =$ force as function of position." />
+        <WorkedEx title="Find the volume when $y = \\sqrt{x}$ from $x=0$ to $x=4$ is rotated about $x$-axis." steps={[
+          "$V = \\pi \\int_0^4 (\\sqrt{x})^2 \\, dx = \\pi \\int_0^4 x \\, dx$",
+          "$= \\pi \\left[\\frac{x^2}{2}\\right]_0^4 = \\pi \\left(\\frac{16}{2} - 0\\right) = 8\\pi$"
+        ]} answer="$V = 8\\pi \\approx 25.13$ cubic units" />
         <Exercises items={[
-          { q: "Area between y = x&#178; and y = x.", level: 'Easy' },
-          { q: "Volume of sphere radius R by disk method.", level: 'Medium' },
-          { q: "Arc length of y = cosh(x) from 0 to 1.", level: 'Hard' },
+          { q: "Area between $y = x^2$ and $y = x$.", level: 'Easy' },
+          { q: "Volume of sphere radius $R$ by disk method.", level: 'Medium' },
+          { q: "Arc length of $y = \\cosh(x)$ from $0$ to $1$.", level: 'Hard' },
         ]} />
       </MCard>
 
       <MQuiz questions={[
-        { question: "&#8741; x e&#8331; dx by parts gives:", options: ["A) e&#8331;(x+1) + C", "B) e&#8331;(x&#8722;1) + C", "C) x e&#8331; + C", "D) e&#8331;/x + C"], correct: 1, explanation: "u=x, dv=e&#8331;dx &#8594; du=dx, v=e&#8331;. &#8741; = x e&#8331; &#8722; e&#8331; + C = e&#8331;(x&#8722;1) + C." },
-        { question: "Simpson's rule is exact for polynomials of degree:", options: ["A) 1", "B) 2", "C) 3", "D) 5"], correct: 2, explanation: "Simpson's rule is exact for polynomials up to degree 3 (cubics)." },
-        { question: "&#8741;&#8321;&#8734; dx/x&#8319; converges when:", options: ["A) p &lt; 1", "B) p &gt; 1", "C) p = 1", "D) All p"], correct: 1, explanation: "The p-test for improper integrals: converges iff p &gt; 1. At p=1 (harmonic), diverges." },
+        { question: "$\\int x e^x \\, dx$ by parts gives:", options: ["A) $e^x(x+1) + C$", "B) $e^x(x-1) + C$", "C) $x e^x + C$", "D) $e^x/x + C$"], correct: 1, explanation: "$u=x$, $dv=e^x \\, dx \\Rightarrow du=dx$, $v=e^x$. $\\int = x e^x - e^x + C = e^x(x-1) + C$." },
+        { question: "Simpson's rule is exact for polynomials of degree:", options: ["A) 1", "B) 2", "C) 3", "D) 5"], correct: 2, explanation: "Simpson's rule is exact for polynomials up to degree $3$ (cubics)." },
+        { question: "$\\int_1^\\infty \\frac{dx}{x^p}$ converges when:", options: ["A) $p &lt; 1$", "B) $p &gt; 1$", "C) $p = 1$", "D) All $p$"], correct: 1, explanation: "The $p$-test for improper integrals: converges iff $p &gt; 1$. At $p=1$ (harmonic), diverges." },
       ]} />
     </MSection>
   );

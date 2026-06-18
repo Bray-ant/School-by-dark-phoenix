@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X, Lightbulb, BookOpen, Sparkles } from 'lucide-react';
+import Math from '../Math';
 
 // ─── Section Wrapper ──────────────────────────────────────
 export function Section({ id, icon, title, color, children }: {
@@ -37,10 +38,14 @@ export function EMCard({ title, children, accent }: { title?: string; children: 
 // ─── Formula Box ──────────────────────────────────────────
 export function Formula({ name, formula, vars }: { name: string; formula: string; vars: string }) {
   return (
-    <div className="rounded-lg p-4 my-3 font-mono text-sm" style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)' }}>
+    <div className="rounded-lg p-4 my-3 text-sm" style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)' }}>
       <div className="text-[10px] text-[#00d4ff] uppercase tracking-wider mb-1">{name}</div>
-      <div className="text-lg text-white font-semibold mb-1.5" dangerouslySetInnerHTML={{ __html: formula }} />
-      <div className="text-[11px] text-[#737373]" dangerouslySetInnerHTML={{ __html: vars }} />
+      <div className="text-lg text-white font-semibold mb-1.5">
+        <Math tex={formula} />
+      </div>
+      <div className="text-[11px] text-[#737373]">
+        <Math tex={vars} />
+      </div>
     </div>
   );
 }

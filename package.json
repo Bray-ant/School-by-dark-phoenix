@@ -99,6 +99,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/react-katex": "^3.0.4",
     "autoprefixer": "^10.4.23",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.1",
