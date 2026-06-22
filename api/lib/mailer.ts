@@ -1,47 +1,190 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
-function getSmtpConfig() {
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
-  const smtpUser = process.env.SMTP_USER || "";
-  const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
-  const fromEmail = process.env.FROM_EMAIL || smtpUser;
-  return { smtpHost, smtpPort, smtpUser, smtpPass, fromEmail };
+// ── Provider Interface ──────────────────────────────────────────
+
+interface EmailPayload {
+  to: string;
+  subject: string;
+  html: string;
 }
 
-let cachedTransporter: Transporter | null = null;
-let cachedUser = "";
-let cachedPass = "";
+interface EmailProvider {
+  name: string;
+  send(payload: EmailPayload, from: string): Promise<boolean>;
+  verify(): Promise<boolean>;
+}
 
-function getTransporter(): { transporter: Transporter | null; fromEmail: string } {
-  const { smtpHost, smtpPort, smtpUser, smtpPass, fromEmail } = getSmtpConfig();
+// ── SMTP Provider (nodemailer) ──────────────────────────────────
 
-  if (!smtpUser || !smtpPass) {
-    console.warn(
-      "[mailer] SMTP not configured — emails will not be sent. Set SMTP_USER and SMTP_PASS env vars.",
-    );
-    return { transporter: null, fromEmail };
-  }
+class SmtpProvider implements EmailProvider {
+  name = "smtp";
+  private transporter: Transporter | null = null;
+  private lastUser = "";
+  private lastPass = "";
 
-  // Rebuild the transporter only if credentials changed (e.g. after a
-  // rotated app password) — avoids reconnecting on every single send.
-  if (!cachedTransporter || cachedUser !== smtpUser || cachedPass !== smtpPass) {
+  private getTransporter(): Transporter | null {
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const port = parseInt(process.env.SMTP_PORT || "587", 10);
+    const user = process.env.SMTP_USER || "";
+    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
+
+    if (!user || !pass) return null;
+    if (this.transporter && this.lastUser === user && this.lastPass === pass) {
+      return this.transporter;
+    }
     console.log(
-      `[mailer] SMTP config: host=${smtpHost} port=${smtpPort} user=${smtpUser.slice(0, 3)}*** from=${fromEmail.slice(0, 3)}***`,
+      `[mailer:smtp] Config: host=${host} port=${port} user=${user.slice(0, 3)}***`,
     );
-    cachedTransporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: { user: smtpUser, pass: smtpPass },
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
     });
-    cachedUser = smtpUser;
-    cachedPass = smtpPass;
+    this.lastUser = user;
+    this.lastPass = pass;
+    return this.transporter;
   }
 
-  return { transporter: cachedTransporter, fromEmail };
+  async send(payload: EmailPayload, from: string): Promise<boolean> {
+    const t = this.getTransporter();
+    if (!t) return false;
+    const info = await t.sendMail({ from, ...payload });
+    console.log(`[mailer:smtp] Sent to ${payload.to}: messageId=${info.messageId}`);
+    return true;
+  }
+
+  async verify(): Promise<boolean> {
+    const t = this.getTransporter();
+    if (!t) return false;
+    try {
+      await t.verify();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
+
+// ── Resend Provider (HTTP API) ──────────────────────────────────
+
+class ResendProvider implements EmailProvider {
+  name = "resend";
+
+  private get apiKey(): string {
+    return process.env.RESEND_API_KEY || "";
+  }
+
+  async send(payload: EmailPayload, from: string): Promise<boolean> {
+    if (!this.apiKey) return false;
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        from,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Resend API error (${resp.status}): ${text}`);
+    }
+    const data = (await resp.json()) as { id?: string };
+    console.log(`[mailer:resend] Sent to ${payload.to}: id=${data.id}`);
+    return true;
+  }
+
+  async verify(): Promise<boolean> {
+    if (!this.apiKey) return false;
+    try {
+      const resp = await fetch("https://api.resend.com/domains", {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+      });
+      return resp.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ── SendGrid Provider (HTTP API) ────────────────────────────────
+
+class SendGridProvider implements EmailProvider {
+  name = "sendgrid";
+
+  private get apiKey(): string {
+    return process.env.SENDGRID_API_KEY || "";
+  }
+
+  async send(payload: EmailPayload, from: string): Promise<boolean> {
+    if (!this.apiKey) return false;
+    const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: payload.to }] }],
+        from: { email: from },
+        subject: payload.subject,
+        content: [{ type: "text/html", value: payload.html }],
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`SendGrid API error (${resp.status}): ${text}`);
+    }
+    console.log(`[mailer:sendgrid] Sent to ${payload.to}`);
+    return true;
+  }
+
+  async verify(): Promise<boolean> {
+    return !!this.apiKey;
+  }
+}
+
+// ── Provider Selection ──────────────────────────────────────────
+
+const providers: EmailProvider[] = [
+  new SmtpProvider(),
+  new ResendProvider(),
+  new SendGridProvider(),
+];
+
+function getActiveProvider(): EmailProvider | null {
+  const forced = process.env.EMAIL_PROVIDER?.toLowerCase();
+  if (forced) {
+    const p = providers.find(p => p.name === forced);
+    if (p) return p;
+    console.warn(`[mailer] Unknown EMAIL_PROVIDER "${forced}", falling back to auto-detect`);
+  }
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) return providers[0];
+  if (process.env.RESEND_API_KEY) return providers[1];
+  if (process.env.SENDGRID_API_KEY) return providers[2];
+  return null;
+}
+
+function getFromEmail(): string {
+  return process.env.FROM_EMAIL || process.env.SMTP_USER || "";
+}
+
+// ── Retry Logic ─────────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 3000, 8000];
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ── Public API ──────────────────────────────────────────────────
 
 function escapeHtml(str: string): string {
   return str
@@ -54,24 +197,36 @@ function escapeHtml(str: string): string {
 const FOOTER = `<p style="font-size: 12px; color: #666; margin-top: 24px;">Regards,<br/>Security Team — School by Dark Phoenix</p>`;
 
 export function isMailerConfigured(): boolean {
-  const { transporter, fromEmail } = getTransporter();
-  return transporter !== null && fromEmail !== "";
+  return getActiveProvider() !== null && getFromEmail() !== "";
+}
+
+export async function verifyMailer(): Promise<{ configured: boolean; provider: string | null; healthy: boolean }> {
+  const provider = getActiveProvider();
+  if (!provider) return { configured: false, provider: null, healthy: false };
+  const healthy = await provider.verify();
+  return { configured: true, provider: provider.name, healthy };
 }
 
 async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
-  const { transporter, fromEmail } = getTransporter();
-  if (!transporter || !fromEmail) {
-    console.warn("[mailer] Cannot send email — SMTP not configured");
+  const provider = getActiveProvider();
+  const from = getFromEmail();
+  if (!provider || !from) {
+    console.warn("[mailer] Cannot send email — no provider configured");
     return false;
   }
-  try {
-    const info = await transporter.sendMail({ from: fromEmail, to, subject, html });
-    console.log(`[mailer] Email sent to ${to}: messageId=${info.messageId}`);
-    return true;
-  } catch (err) {
-    console.error(`[mailer] Failed to send email to ${to}:`, err);
-    return false;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await provider.send({ to, subject, html }, from);
+    } catch (err) {
+      console.error(`[mailer:${provider.name}] Attempt ${attempt + 1}/${MAX_RETRIES} failed for ${to}:`, err);
+      if (attempt < MAX_RETRIES - 1) {
+        await sleep(RETRY_DELAYS[attempt]);
+      }
+    }
   }
+  console.error(`[mailer:${provider.name}] All ${MAX_RETRIES} attempts failed for ${to}`);
+  return false;
 }
 
 function requestDetails(ip: string, userAgent?: string, timestamp?: string): string {

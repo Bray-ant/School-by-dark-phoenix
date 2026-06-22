@@ -32,4 +32,7 @@ export const env = {
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
   fromEmail: process.env.FROM_EMAIL ?? "",
+  emailProvider: process.env.EMAIL_PROVIDER ?? "",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  sendgridApiKey: process.env.SENDGRID_API_KEY ?? "",
 };

@@ -3,6 +3,7 @@ import { findAllUsers } from "./queries/users";
 import { getDb } from "./queries/connection";
 import { loginActivity } from "@db/schema";
 import { desc } from "drizzle-orm";
+import { verifyMailer } from "./lib/mailer";
 
 export const adminRouter = createRouter({
   users: adminQuery.query(async () => {
@@ -16,5 +17,8 @@ export const adminRouter = createRouter({
       .orderBy(desc(loginActivity.createdAt))
       .limit(200);
     return rows;
+  }),
+  emailHealth: adminQuery.query(async () => {
+    return verifyMailer();
   }),
 });
