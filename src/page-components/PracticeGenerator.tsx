@@ -4,11 +4,14 @@ import {
   generateExercise, updateMasteryProgress, topics, topicColors,
   difficultyLabels, difficultyColors, type Topic, type DifficultyLevel, type GeneratedExercise,
 } from '../data/generatorEngine';
-import { Dices, ChevronRight, Lightbulb, Eye, EyeOff, RotateCcw, ArrowUp, ArrowDown, CheckCircle, Clock, Target, Zap, BookOpen, Flame, Home } from 'lucide-react';
+import { Dices, ChevronRight, Lightbulb, Eye, EyeOff, RotateCcw, ArrowUp, ArrowDown, CheckCircle, Clock, Target, Zap, BookOpen, Flame, Home, Sparkles, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { withClientOnly } from '../components/withClientOnly';
+import { useAuth } from '../hooks/useAuth';
+import { trpc } from '@/providers/trpc';
 
 function PracticeGenerator() {
+  const { isAuthenticated } = useAuth();
   const getInitialTopic = (): Topic => {
     const saved = sessionStorage.getItem('practiceTopic') as Topic | null;
     if (saved) { sessionStorage.removeItem('practiceTopic'); return saved; }
@@ -24,12 +27,50 @@ function PracticeGenerator() {
   const [completed, setCompleted] = useState(0);
   const [sessionStreak, setSessionStreak] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [exerciseSource, setExerciseSource] = useState<'local' | 'ai'>('local');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const aiGenerateMutation = trpc.smart.generatePractice.useMutation();
+
+  const resetExerciseState = () => {
+    setRevealedSteps(new Set()); setShowHints(false);
+    setActiveHint(0); setShowAnswer(false); setElapsed(0);
+  };
 
   const gen = (t: Topic, d: DifficultyLevel) => {
     const ex = generateExercise(t, d);
-    setExercise(ex); setRevealedSteps(new Set()); setShowHints(false);
-    setActiveHint(0); setShowAnswer(false); setElapsed(0);
+    setExercise(ex); setExerciseSource('local'); resetExerciseState();
+  };
+
+  const genAi = async (t: Topic, d: DifficultyLevel) => {
+    setIsAiGenerating(true);
+    resetExerciseState();
+    try {
+      const result = await aiGenerateMutation.mutateAsync({ topic: t, difficulty: d });
+      if (result.exercise && result.source === 'ai') {
+        setExercise({
+          id: `ai-${Date.now()}`,
+          topic: t,
+          difficulty: d,
+          problemText: result.exercise.problemText,
+          answer: result.exercise.answer,
+          solutionSteps: result.exercise.solutionSteps,
+          hints: result.exercise.hints,
+          estimatedTime: result.exercise.estimatedTime,
+          verification: result.exercise.verification,
+          seed: 0,
+        });
+        setExerciseSource('ai');
+        return;
+      }
+    } catch {
+      // AI failed — fall through to local
+    } finally {
+      setIsAiGenerating(false);
+    }
+    // Fallback to local
+    gen(t, d);
   };
 
   useEffect(() => {
@@ -109,6 +150,15 @@ function PracticeGenerator() {
               <button onClick={handleEasier} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium transition-all flex items-center gap-1.5"><ArrowDown className="w-3.5 h-3.5" /> Easier</button>
               <button onClick={handleHarder} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium transition-all flex items-center gap-1.5"><ArrowUp className="w-3.5 h-3.5" /> Harder</button>
               <button onClick={handleRandom} className="px-3 py-2 rounded-xl bg-[#ec4899]/15 hover:bg-[#ec4899]/25 border border-[#ec4899]/30 text-[#ec4899] text-xs font-medium transition-all flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Random</button>
+              {isAuthenticated && (
+                <button
+                  onClick={() => genAi(topic, difficulty)}
+                  disabled={isAiGenerating}
+                  className="px-3 py-2 rounded-xl bg-[#8b5cf6]/15 hover:bg-[#8b5cf6]/25 border border-[#8b5cf6]/30 text-[#8b5cf6] text-xs font-medium transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isAiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI Generate
+                </button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -123,7 +173,14 @@ function PracticeGenerator() {
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ backgroundColor: `${difficultyColors[exercise.difficulty]}15`, color: difficultyColors[exercise.difficulty] }}>L{exercise.difficulty}: {difficultyLabels[exercise.difficulty]}</span>
                     <span className="text-[10px] text-[#737373] font-mono flex items-center gap-1"><Clock className="w-3 h-3" />{exercise.estimatedTime}</span>
                   </div>
-                  <span className="text-[10px] font-mono text-[#525252]">#{exercise.seed}</span>
+                  <div className="flex items-center gap-2">
+                    {exerciseSource === 'ai' && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-[#8b5cf6]/15 text-[#8b5cf6] flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> AI
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono text-[#525252]">#{exercise.seed || exercise.id}</span>
+                  </div>
                 </div>
                 <div className="text-base md:text-lg font-medium leading-relaxed text-[#f6f6f6]" dangerouslySetInnerHTML={{ __html: exercise.problemText }} />
               </div>
