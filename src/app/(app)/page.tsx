@@ -10,7 +10,7 @@ export default function Page() {
   useEffect(() => setMounted(true), []);
   if (!mounted) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#050510] text-neutral-400">
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background text-muted-foreground">
         <div className="w-10 h-10 rounded-full border-4 border-violet-500 border-t-transparent animate-spin mb-3" />
         <div>Loading Project school...</div>
       </div>
