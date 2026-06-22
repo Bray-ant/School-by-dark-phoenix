@@ -51,47 +51,66 @@ function ChatRoom() {
   const { user, isAuthenticated } = useAuth();
   const [selectedRoom, setSelectedRoom] = useState<number>(1);
   const [input, setInput] = useState('');
-  const [localMessages, setLocalMessages] = useState<DisplayMessage[]>([]);
+  const [sseMessages, setSseMessages] = useState<DisplayMessage[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const utils = trpc.useUtils();
+  // SSE real-time connection — subscribes to room, pushes new messages
+  useEffect(() => {
+    const eventSource = new EventSource(`/api/chat/events?roomId=${selectedRoom}`);
 
-  // Fetch messages from DB
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as {
+          type: string;
+          roomId: number;
+          message: DisplayMessage;
+        };
+        if (data.type === 'message') {
+          setSseMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev;
+            return [...prev, data.message];
+          });
+        }
+      } catch {
+        // Skip malformed events
+      }
+    };
+
+    return () => {
+      eventSource.close();
+      setSseMessages([]);
+    };
+  }, [selectedRoom]);
+
+  // Fetch initial messages from DB (no polling — SSE handles updates)
   const { data: dbMessages } = trpc.chat.getMessages.useQuery(
     { roomId: selectedRoom },
-    { refetchInterval: 5000 }
+    { refetchInterval: false }
   );
 
   // Mutations
-  const sendMessageMutation = trpc.chat.sendMessage.useMutation({
-    onSuccess: () => utils.chat.getMessages.invalidate({ roomId: selectedRoom }),
-  });
+  const sendMessageMutation = trpc.chat.sendMessage.useMutation();
   const askAiMutation = trpc.chat.askAi.useMutation({
-    onSuccess: () => {
-      utils.chat.getMessages.invalidate({ roomId: selectedRoom });
-      setIsAiLoading(false);
-    },
+    onSuccess: () => setIsAiLoading(false),
     onError: () => setIsAiLoading(false),
   });
 
-  // Merge local + DB messages
-  useEffect(() => {
-    const dbOnes = (dbMessages || []).map(m => ({
-      id: m.id,
-      roomId: m.roomId,
-      userName: m.userName || (m.isAi ? 'CircuitBot' : 'Guest'),
-      content: m.content,
-      isAi: m.isAi,
-      createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
-    }));
-    // Merge, deduplicate by id
-    const merged = [...localMessages, ...dbOnes];
-    const unique = merged.filter((m, i, a) => a.findIndex(x => x.id === m.id) === i);
-    unique.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    setLocalMessages(unique);
-  }, [dbMessages]);
+  // Derive display messages from DB query + SSE events
+  const dbOnes: DisplayMessage[] = (dbMessages ?? []).map(m => ({
+    id: m.id,
+    roomId: m.roomId,
+    userName: m.userName || (m.isAi ? 'CircuitBot' : 'Guest'),
+    content: m.content,
+    isAi: m.isAi,
+    createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+  }));
+  const dbIds = new Set(dbOnes.map(m => m.id));
+  const newFromSse = sseMessages.filter(m => !dbIds.has(m.id));
+  const localMessages = [...dbOnes, ...newFromSse].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,22 +122,12 @@ function ChatRoom() {
     const content = input.trim();
     setInput('');
 
-    // Save user message via tRPC
-    const result = await sendMessageMutation.mutateAsync({
+    // Save user message via tRPC — SSE will push it back in real-time
+    await sendMessageMutation.mutateAsync({
       roomId: selectedRoom,
       content,
       userName: user?.name || undefined,
     });
-
-    // Add to local state immediately
-    setLocalMessages(prev => [...prev, {
-      id: result.id,
-      roomId: selectedRoom,
-      userName: result.userName || user?.name || 'You',
-      content: result.content,
-      isAi: 0,
-      createdAt: new Date().toISOString(),
-    }]);
 
     // Check if message mentions AI
     if (content.toLowerCase().includes('@bot') || content.toLowerCase().includes('@circuit')) {

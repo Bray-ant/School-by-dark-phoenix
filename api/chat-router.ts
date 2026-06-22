@@ -5,7 +5,7 @@ import { chatRooms, chatMessages } from "@db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 import { callKimiChat, CHAT_AI_SYSTEM_PROMPT } from "./kimi/chat";
 import { env } from "./lib/env";
-// import { TRPCError } from "@trpc/server";
+import { chatEventBus } from "./lib/chat-events";
 
 // Local AI response for chat room (no auth needed)
 function generateChatAiResponse(content: string): string {
@@ -49,6 +49,20 @@ export const chatRouter = createRouter({
         userAvatar: ctx.user?.avatar, content: input.content, isAi: 0,
       }).$returningId();
       const [inserted] = await db.select().from(chatMessages).where(eq(chatMessages.id, msg.id)).limit(1);
+
+      chatEventBus.publish({
+        type: "message",
+        roomId: input.roomId,
+        message: {
+          id: inserted.id,
+          roomId: inserted.roomId,
+          userName: inserted.userName || name,
+          content: inserted.content,
+          isAi: inserted.isAi,
+          createdAt: inserted.createdAt instanceof Date ? inserted.createdAt.toISOString() : String(inserted.createdAt),
+        },
+      });
+
       return inserted;
     }),
 
@@ -101,6 +115,19 @@ export const chatRouter = createRouter({
         content: response, isAi: 1,
       }).$returningId();
       const [inserted] = await db.select().from(chatMessages).where(eq(chatMessages.id, aiMsg.id)).limit(1);
+
+      chatEventBus.publish({
+        type: "message",
+        roomId: input.roomId,
+        message: {
+          id: inserted.id,
+          roomId: inserted.roomId,
+          userName: inserted.userName || "CircuitBot",
+          content: inserted.content,
+          isAi: inserted.isAi,
+          createdAt: inserted.createdAt instanceof Date ? inserted.createdAt.toISOString() : String(inserted.createdAt),
+        },
+      });
 
       return { userMessage: true, aiResponse: inserted, usedAi };
     }),
