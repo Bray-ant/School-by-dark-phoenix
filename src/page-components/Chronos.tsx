@@ -9,6 +9,22 @@ import {
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
+function getBestVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  const preferred = [
+    'Google US English', 'Google UK English Female', 'Google UK English Male',
+    'Microsoft Zira', 'Microsoft David', 'Samantha', 'Daniel',
+    'Karen', 'Moira', 'Tessa',
+  ];
+  for (const name of preferred) {
+    const v = voices.find(v => v.name.includes(name));
+    if (v) return v;
+  }
+  const english = voices.filter(v => v.lang.startsWith('en'));
+  return english.find(v => !v.localService) || english[0] || voices[0];
+}
+
 interface SpeechTopic {
   id: string;
   title: string;
@@ -105,6 +121,11 @@ const topics: SpeechTopic[] = [
 
 const categories = ['All', ...Array.from(new Set(topics.map(t => t.category)))];
 
+const VISUALIZER_BARS = Array.from({ length: 32 }, (_, i) => ({
+  height: 20 + ((Math.sin(i * 1.7 + 3) * 0.5 + 0.5) * 40),
+  duration: 0.4 + ((Math.sin(i * 2.3 + 7) * 0.5 + 0.5) * 0.4),
+}));
+
 export default function Chronos() {
   const [selectedTopic, setSelectedTopic] = useState<SpeechTopic>(topics[0]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -113,6 +134,8 @@ export default function Chronos() {
   const [filter, setFilter] = useState('All');
   const [elapsed, setElapsed] = useState(0);
   const [activeUtterance, setActiveUtterance] = useState<SpeechSynthesisUtterance | null>(null);
+  const [spokenWordIndex, setSpokenWordIndex] = useState(-1);
+  const [progress, setProgress] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { addToast } = useToast();
 
@@ -142,14 +165,35 @@ export default function Chronos() {
     utter.rate = rate;
     utter.pitch = 1;
     utter.volume = 1;
+    const voice = getBestVoice();
+    if (voice) utter.voice = voice;
+    const words = topic.content.split(/\s+/);
+    const totalWords = words.length;
+    utter.onboundary = (e) => {
+      if (e.name === 'word') {
+        const charIdx = e.charIndex;
+        let wordIdx = 0;
+        let pos = 0;
+        for (let i = 0; i < words.length; i++) {
+          if (pos >= charIdx) { wordIdx = i; break; }
+          pos += words[i].length + 1;
+        }
+        setSpokenWordIndex(wordIdx);
+        setProgress(Math.min(100, Math.round((wordIdx / totalWords) * 100)));
+      }
+    };
     utter.onstart = () => {
       setIsPlaying(true);
       setIsPaused(false);
+      setSpokenWordIndex(-1);
+      setProgress(0);
       startTimer();
     };
     utter.onend = () => {
       setIsPlaying(false);
       setIsPaused(false);
+      setSpokenWordIndex(-1);
+      setProgress(100);
       stopTimer();
     };
     utter.onpause = () => {
@@ -165,6 +209,8 @@ export default function Chronos() {
     utter.onerror = () => {
       setIsPlaying(false);
       setIsPaused(false);
+      setSpokenWordIndex(-1);
+      setProgress(0);
       stopTimer();
     };
     setActiveUtterance(utter);
@@ -188,6 +234,8 @@ export default function Chronos() {
     window.speechSynthesis.cancel();
     setIsPlaying(false);
     setIsPaused(false);
+    setSpokenWordIndex(-1);
+    setProgress(0);
     stopTimer();
     setElapsed(0);
   };
@@ -309,16 +357,16 @@ export default function Chronos() {
             <div className="flex items-center justify-center h-20 mb-4">
               {isPlaying ? (
                 <div className="flex items-end gap-[3px] h-16">
-                  {Array.from({ length: 32 }).map((_, i) => (
+                  {VISUALIZER_BARS.map((bar, i) => (
                     <motion.div
                       key={i}
                       className="w-[3px] rounded-full"
                       style={{ backgroundColor: selectedTopic.color }}
                       animate={{
-                        height: ['12px', `${20 + Math.random() * 40}px`, '12px'],
+                        height: ['12px', `${bar.height}px`, '12px'],
                       }}
                       transition={{
-                        duration: 0.4 + Math.random() * 0.4,
+                        duration: bar.duration,
                         repeat: Infinity,
                         delay: i * 0.02,
                       }}
@@ -342,6 +390,16 @@ export default function Chronos() {
             <div className="text-center mb-4">
               <h2 className="text-sm font-semibold mb-1">{selectedTopic.title}</h2>
               <p className="text-[10px] text-[#737373]">{selectedTopic.category} &middot; {formatTime(elapsed)}</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full h-1 rounded-full bg-white/5 mb-4 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: selectedTopic.color }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3, ease: 'linear' }}
+              />
             </div>
 
             {/* Controls */}
@@ -409,8 +467,19 @@ export default function Chronos() {
               <ListMusic className="w-4 h-4 text-[#737373]" />
               <h3 className="text-xs font-semibold">Transcript</h3>
             </div>
-            <p className="text-xs text-[#a3a3a3] leading-relaxed">
-              {selectedTopic.content}
+            <p className="text-xs leading-relaxed">
+              {selectedTopic.content.split(/\s+/).map((word, i) => (
+                <span
+                  key={i}
+                  className={`transition-colors duration-150 ${
+                    spokenWordIndex >= 0 && i <= spokenWordIndex
+                      ? 'text-[#f6f6f6]'
+                      : 'text-[#a3a3a3]'
+                  }${i === spokenWordIndex ? ' font-medium' : ''}`}
+                >
+                  {word}{' '}
+                </span>
+              ))}
             </p>
           </div>
 
