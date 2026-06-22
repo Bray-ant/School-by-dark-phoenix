@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ export default function RootLayout({
           <div className="spinner"></div>
           <div>Loading Project school...</div>
         </div>
-        <script src="/fallback-loader.js" />
+        <Script src="/fallback-loader.js" strategy="beforeInteractive" />
       </body>
     </html>
   );
