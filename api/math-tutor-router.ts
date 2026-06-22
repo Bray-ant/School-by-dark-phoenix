@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createRouter, authedQuery, publicQuery } from "./middleware";
 import {
-  getUserAccessToken,
   callKimiChat,
   MATH_TUTOR_SYSTEM_PROMPT,
 } from "./kimi/chat";
 import { handleTutorMessage } from "./lib/ai-helpers";
+import { env } from "./lib/env";
 
 // ── Topic detection ──────────────────────────
 function detectMathTopic(q: string): string {
@@ -225,14 +225,14 @@ export const mathTutorRouter = createRouter({
       topic: z.string().min(1),
       difficulty: z.enum(["Easy", "Medium", "Hard"]).default("Medium"),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const accessToken = await getUserAccessToken(ctx.user.id);
+    .mutation(async ({ input }) => {
       const detectedTopic = detectMathTopic(input.topic);
+      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
 
-      if (accessToken) {
+      if (hasAiProvider) {
         try {
           const prompt = `Generate a ${input.difficulty} difficulty practice problem about ${detectedTopic}. Include the problem statement only (no solution). Make it a clear, well-posed mathematics problem suitable for university students.`;
-          const response = await callKimiChat(accessToken, [
+          const response = await callKimiChat(null, [
             { role: "system", content: MATH_TUTOR_SYSTEM_PROMPT },
             { role: "user", content: prompt },
           ], { temperature: 0.8, max_tokens: 1500 });

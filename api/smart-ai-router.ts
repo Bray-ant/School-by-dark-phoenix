@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createRouter, authedQuery, publicQuery } from "./middleware";
 import {
-  getUserAccessToken,
   callKimiChat,
 } from "./kimi/chat";
+import { env } from "./lib/env";
 
 // ─── Problem Generation ───────────────────────────────────
 
@@ -96,7 +96,7 @@ Respond in this format:
   "tips": ["study tip 1", "study tip 2"]
 }`;
 
-// ─── Helper: call Kimi with fallback ──────────────────────
+// ─── Helper: call AI with fallback ────────────────────────
 
 async function callKimiWithFallback(
   userId: number | undefined,
@@ -107,12 +107,12 @@ async function callKimiWithFallback(
 ): Promise<string> {
   if (!userId) return fallback();
 
-  const accessToken = await getUserAccessToken(userId);
-  if (!accessToken) return fallback();
+  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+  if (!hasAiProvider) return fallback();
 
   try {
     return await callKimiChat(
-      accessToken,
+      null,
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -120,7 +120,7 @@ async function callKimiWithFallback(
       { temperature: options?.temperature ?? 0.7, max_tokens: options?.max_tokens ?? 2048 }
     );
   } catch (err) {
-    console.error("[callKimiWithFallback] Kimi API call failed, using fallback:", err);
+    console.error("[callKimiWithFallback] AI API call failed, using fallback:", err);
     return fallback();
   }
 }
@@ -303,16 +303,14 @@ export const smartAiRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       const fallback = () => generateQuizFallback(input.topic, input.count, input.difficulty);
 
-      if (!ctx.user?.id) {
+      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      if (!ctx.user?.id || !hasAiProvider) {
         return { quiz: fallback(), source: "local" };
       }
 
-      const accessToken = await getUserAccessToken(ctx.user.id);
-      if (!accessToken) return { quiz: fallback(), source: "local" };
-
       try {
         const response = await callKimiChat(
-          accessToken,
+          null,
           [
             { role: "system", content: QUIZ_GEN_PROMPT },
             { role: "user", content: `Generate a ${input.difficulty} quiz on "${input.topic}" with ${input.count} questions. Return valid JSON only.` },
@@ -322,9 +320,9 @@ export const smartAiRouter = createRouter({
         // Try to parse JSON from response
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         const quiz = jsonMatch ? JSON.parse(jsonMatch[0]) : fallback();
-        return { quiz, source: "kimi" };
+        return { quiz, source: "ai" };
       } catch (err) {
-        console.error("[generateQuiz] Kimi quiz generation failed, using fallback:", err);
+        console.error("[generateQuiz] AI quiz generation failed, using fallback:", err);
         return { quiz: fallback(), source: "local" };
       }
     }),
@@ -381,12 +379,12 @@ export const smartAiRouter = createRouter({
         return { plan: fallback(), source: "local" };
       }
 
-      const accessToken = await getUserAccessToken(ctx.user.id);
-      if (!accessToken) return { plan: fallback(), source: "local" };
+      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      if (!hasAiProvider) return { plan: fallback(), source: "local" };
 
       try {
         const response = await callKimiChat(
-          accessToken,
+          null,
           [
             { role: "system", content: STUDY_PLAN_PROMPT },
             { role: "user", content: `Create a ${input.duration}-day study plan for ${input.level} level. Focus areas: ${input.focusAreas.join(", ") || "general DC circuit analysis"}. Return valid JSON.` },
@@ -395,9 +393,9 @@ export const smartAiRouter = createRouter({
         );
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         const plan = jsonMatch ? JSON.parse(jsonMatch[0]) : fallback();
-        return { plan, source: "kimi" };
+        return { plan, source: "ai" };
       } catch (err) {
-        console.error("[generateStudyPlan] Kimi study plan generation failed, using fallback:", err);
+        console.error("[generateStudyPlan] AI study plan generation failed, using fallback:", err);
         return { plan: fallback(), source: "local" };
       }
     }),
@@ -449,10 +447,10 @@ export const smartAiRouter = createRouter({
       message: z.string().min(1).max(4000),
       conversationId: z.number().optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const accessToken = await getUserAccessToken(ctx.user.id);
-      if (!accessToken) {
-        return { error: "No access token. Please sign out and back in." };
+    .mutation(async ({ input }) => {
+      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      if (!hasAiProvider) {
+        return { error: "No AI provider configured (set NVIDIA_API_KEY or KIMI_API_KEY)." };
       }
       return { conversationId: input.conversationId, ready: true };
     }),

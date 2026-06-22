@@ -3,7 +3,8 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { chatRooms, chatMessages } from "@db/schema";
 import { eq, desc, asc } from "drizzle-orm";
-import { getUserAccessToken, callKimiChat, CHAT_AI_SYSTEM_PROMPT } from "./kimi/chat";
+import { callKimiChat, CHAT_AI_SYSTEM_PROMPT } from "./kimi/chat";
+import { env } from "./lib/env";
 // import { TRPCError } from "@trpc/server";
 
 // Local AI response for chat room (no auth needed)
@@ -64,34 +65,32 @@ export const chatRouter = createRouter({
         content: input.content, isAi: 0,
       });
 
-      // 2. Try Kimi API if user is authenticated and has a token
+      // 2. Try AI API (NVIDIA or Kimi) if configured
       let response = "";
-      let usedKimi = false;
+      let usedAi = false;
+      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
 
-      if (ctx.user) {
-        const accessToken = await getUserAccessToken(ctx.user.id);
-        if (accessToken) {
-          try {
-            const recentMessages = await db.select().from(chatMessages)
-              .where(eq(chatMessages.roomId, input.roomId))
-              .orderBy(desc(chatMessages.createdAt)).limit(10);
-            const chatHistory = recentMessages.reverse().map(m => ({
-              role: m.isAi ? ("assistant" as const) : ("user" as const),
-              content: `${m.userName ?? "User"}: ${m.content}`,
-            }));
-            response = await callKimiChat(accessToken, [
-              { role: "system", content: CHAT_AI_SYSTEM_PROMPT },
-              ...chatHistory,
-              { role: "user", content: input.content },
-            ], { temperature: 0.8, max_tokens: 1024 });
-            usedKimi = true;
-          } catch (err) {
-            console.error("[askAi] Kimi chat API failed, falling back to local response:", err);
-          }
+      if (hasAiProvider) {
+        try {
+          const recentMessages = await db.select().from(chatMessages)
+            .where(eq(chatMessages.roomId, input.roomId))
+            .orderBy(desc(chatMessages.createdAt)).limit(10);
+          const chatHistory = recentMessages.reverse().map(m => ({
+            role: m.isAi ? ("assistant" as const) : ("user" as const),
+            content: `${m.userName ?? "User"}: ${m.content}`,
+          }));
+          response = await callKimiChat(null, [
+            { role: "system", content: CHAT_AI_SYSTEM_PROMPT },
+            ...chatHistory,
+            { role: "user", content: input.content },
+          ], { temperature: 0.8, max_tokens: 1024 });
+          usedAi = true;
+        } catch (err) {
+          console.error("[askAi] AI chat API failed, falling back to local response:", err);
         }
       }
 
-      // 3. Use local response if Kimi failed or user not authenticated
+      // 3. Use local response if AI failed or not configured
       if (!response) {
         response = generateChatAiResponse(input.content);
       }
@@ -103,6 +102,6 @@ export const chatRouter = createRouter({
       }).$returningId();
       const [inserted] = await db.select().from(chatMessages).where(eq(chatMessages.id, aiMsg.id)).limit(1);
 
-      return { userMessage: true, aiResponse: inserted, usedKimi };
+      return { userMessage: true, aiResponse: inserted, usedAi };
     }),
 });

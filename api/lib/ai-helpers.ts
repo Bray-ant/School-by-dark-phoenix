@@ -1,12 +1,13 @@
 import { getDb } from "../queries/connection";
 import { aiConversations, aiMessages } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
-import { getUserAccessToken, callKimiChat } from "../kimi/chat";
+import { callKimiChat } from "../kimi/chat";
+import { env } from "../lib/env";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Calls the Kimi AI API with authentication, falling back to a local generator
- * if the user is not authenticated or the API fails.
+ * Calls the AI API (NVIDIA or Kimi), falling back to a local generator
+ * if no provider is configured or the call fails.
  */
 export async function callKimiWithFallback(
   userId: number | undefined,
@@ -17,12 +18,12 @@ export async function callKimiWithFallback(
 ): Promise<string> {
   if (!userId) return fallback();
 
-  const accessToken = await getUserAccessToken(userId);
-  if (!accessToken) return fallback();
+  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+  if (!hasAiProvider) return fallback();
 
   try {
     return await callKimiChat(
-      accessToken,
+      null,
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -30,7 +31,7 @@ export async function callKimiWithFallback(
       { temperature: options?.temperature ?? 0.7, max_tokens: options?.max_tokens ?? 2048 }
     );
   } catch (err) {
-    console.error("[callKimiWithFallback] Kimi API call failed, using fallback:", err);
+    console.error("[callKimiWithFallback] AI API call failed, using fallback:", err);
     return fallback();
   }
 }
@@ -71,10 +72,10 @@ export async function handleTutorMessage(opts: {
     content: opts.message,
   });
 
-  const accessToken = await getUserAccessToken(opts.userId);
+  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
   let response: string;
 
-  if (accessToken) {
+  if (hasAiProvider) {
     const history = await db.select().from(aiMessages)
       .where(eq(aiMessages.conversationId, convId))
       .orderBy(desc(aiMessages.createdAt))
@@ -89,18 +90,18 @@ export async function handleTutorMessage(opts: {
     ];
 
     try {
-      response = await callKimiChat(accessToken, messages, {
+      response = await callKimiChat(null, messages, {
         temperature: 0.7,
         max_tokens: 2048,
       });
     } catch (err) {
-      console.error("[handleTutorMessage] Kimi API call failed, using local fallback:", err);
+      console.error("[handleTutorMessage] AI API call failed, using local fallback:", err);
       response = opts.localFallback(opts.message)
-        + (opts.fallbackSuffix ?? "\n\n*(Kimi API temporarily unavailable — using built-in knowledge base)*");
+        + (opts.fallbackSuffix ?? "\n\n*(AI API temporarily unavailable — using built-in knowledge base)*");
     }
   } else {
     response = opts.localFallback(opts.message)
-      + "\n\n*(Sign out and sign back in to enable enhanced AI responses)*";
+      + "\n\n*(Configure NVIDIA_API_KEY or KIMI_API_KEY to enable enhanced AI responses)*";
   }
 
   const [aiMsg] = await db.insert(aiMessages).values({
