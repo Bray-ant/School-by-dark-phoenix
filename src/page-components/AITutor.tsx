@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { trpc } from '@/providers/trpc';
+import { useAiStream } from '../hooks/useAiStream';
 import {
   Brain, Send, User, Sparkles, ChevronLeft, Loader2,
   MessageSquare, FlipHorizontal, Lock, Bot,
-  Sigma, Zap, BookOpen,
+  Sigma, Zap, BookOpen, Square,
 } from 'lucide-react';
 import { withClientOnly } from '../components/withClientOnly';
 
@@ -116,14 +117,30 @@ function AITutor() {
   const mathTutorMutation = trpc.math.tutor.useMutation();
   const mathExplainMutation = trpc.math.explain.useMutation();
 
+  // Streaming AI
+  const aiStream = useAiStream();
+  const [streamConvId, setStreamConvId] = useState<number | undefined>();
+  const streamingMsgId = useRef<string | null>(null);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => { scrollToBottom(); }, [messages.length]);
 
+  // Update streaming message in-place
+  useEffect(() => {
+    if (aiStream.isStreaming && aiStream.content && streamingMsgId.current) {
+      const msgId = streamingMsgId.current;
+      setMessages(prev => prev.map(m =>
+        m.id === msgId ? { ...m, content: aiStream.content } : m
+      ));
+      scrollToBottom();
+    }
+  }, [aiStream.content, aiStream.isStreaming]);
+
   const handleSend = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || aiStream.isStreaming) return;
 
     const text = input.trim();
     const isMath = subject === 'math' || isMathQuestion(text);
@@ -135,6 +152,38 @@ function AITutor() {
     };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+
+    // Authenticated chat mode → use streaming
+    if (isAuthenticated && mode === 'chat') {
+      const assistantId = `stream-${Date.now()}`;
+      streamingMsgId.current = assistantId;
+      setMessages(prev => [...prev, {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        type: 'chat',
+      }]);
+
+      aiStream.send(text, {
+        subject: isMath ? 'math' : 'circuits',
+        conversationId: streamConvId,
+        onDone: (_fullContent, convId) => {
+          streamingMsgId.current = null;
+          setStreamConvId(convId);
+        },
+        onError: () => {
+          streamingMsgId.current = null;
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId
+              ? { ...m, content: m.content || "I'm sorry, I encountered an error. Please try again." }
+              : m
+          ));
+        },
+      });
+      return;
+    }
+
+    // Non-streaming paths (unauthenticated, or flashcards/solve modes)
     setIsLoading(true);
 
     try {
@@ -143,13 +192,12 @@ function AITutor() {
       let topic = "";
 
       if (isAuthenticated) {
+        // Authenticated but non-chat mode (flashcards/solve) — use tRPC
         if (isMath) {
-          // Use math tutor with Kimi
           const result = await mathTutorMutation.mutateAsync({ message: text });
           response = result.response.content;
           topic = result.topic;
         } else {
-          // Use circuit tutor with Kimi
           const result = await quickChatMutation.mutateAsync({ message: text });
           response = result.response.content;
         }
@@ -170,7 +218,6 @@ function AITutor() {
             topic = result.topic;
           }
         } else {
-          // Circuit endpoints
           if (mode === 'flashcards') {
             const result = await flashcardsMutation.mutateAsync({ topic: text, count: 5 });
             flashcards = result.flashcards;
@@ -203,7 +250,7 @@ function AITutor() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, subject, mode, isAuthenticated, askMutation, flashcardsMutation, solveMutation, quickChatMutation, mathAskMutation, mathTutorMutation, mathExplainMutation]);
+  }, [input, isLoading, subject, mode, isAuthenticated, aiStream, streamConvId, askMutation, flashcardsMutation, solveMutation, quickChatMutation, mathAskMutation, mathTutorMutation, mathExplainMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -354,13 +401,13 @@ function AITutor() {
             ))}
           </AnimatePresence>
 
-          {isLoading && (
+          {(isLoading || (aiStream.isStreaming && !aiStream.content)) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
               <div className="w-7 h-7 rounded-lg bg-[#8b5cf6]/15 flex items-center justify-center shrink-0">
                 <Loader2 className="w-3.5 h-3.5 text-[#8b5cf6] animate-spin" />
               </div>
               <div className="bg-white/5 rounded-2xl px-4 py-3 text-xs text-[#737373]">
-                {isAuthenticated ? 'Kimi AI is thinking...' : 'Thinking...'}
+                {isAuthenticated ? 'AI is thinking...' : 'Thinking...'}
               </div>
             </motion.div>
           )}
@@ -449,13 +496,23 @@ function AITutor() {
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-[#f6f6f6] placeholder-[#737373] outline-none resize-none min-h-[44px] max-h-[120px] focus:border-[#8b5cf6]/30"
             rows={1}
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="px-4 py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </button>
+          {aiStream.isStreaming ? (
+            <button
+              onClick={aiStream.abort}
+              className="px-4 py-3 bg-red-500/80 hover:bg-red-500 text-white rounded-xl transition-colors"
+              title="Stop generating"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="px-4 py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          )}
         </div>
       </div>
     </div>
