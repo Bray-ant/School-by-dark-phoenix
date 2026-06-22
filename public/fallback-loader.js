@@ -15,13 +15,13 @@ window.addEventListener('load', () => {
   setTimeout(() => {
     const loader = document.getElementById('fallback-loader');
     if (loader) {
-      loader.remove();
+      loader.style.display = 'none';
     }
   }, 500);
 
   setTimeout(() => {
     const loader = document.getElementById('fallback-loader');
-    if (loader && document.body.contains(loader)) {
+    if (loader && loader.style.display !== 'none') {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
           Promise.all(regs.map(r => r.unregister())).then(() => {
