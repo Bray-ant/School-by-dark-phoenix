@@ -31,12 +31,12 @@ export default function Navigation() {
   return (
     <>
       <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-6xl" aria-label="Main navigation">
-        <div className="glass-panel-strong rounded-2xl px-4 py-2.5 flex items-center gap-2">
+        <div className="glass-panel-strong rounded-2xl px-4 py-2.5 flex items-center gap-2 shadow-sm">
           <Link href="/" className="flex items-center gap-2.5 group shrink-0">
             <div className="w-8 h-8 rounded-lg bg-[#3b82f6]/20 border border-[#3b82f6]/30 flex items-center justify-center group-hover:bg-[#3b82f6]/30 transition-colors">
               <Box className="w-4 h-4 text-[#3b82f6]" />
             </div>
-            <span className="font-semibold text-sm tracking-tight">Project school</span>
+            <span className="font-semibold text-sm tracking-tight text-[var(--text-primary)]">Project school</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-hide flex-1 min-w-0">
@@ -53,7 +53,7 @@ export default function Navigation() {
             <Link href="/em" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${pathname === '/em' ? 'bg-white/10 text-white' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><ZapOff className="w-3.5 h-3.5" /><span className="hidden xl:inline">EM & Magnetism</span></Link>
             <Link href="/math" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${pathname === '/math' ? 'bg-white/10 text-white' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><Sigma className="w-3.5 h-3.5" /><span className="hidden xl:inline">Math</span></Link>
             <Link href="/games" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${pathname.startsWith('/games') ? 'bg-[#ec4899]/15 text-[#ec4899]' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><Gamepad2 className="w-3.5 h-3.5" /><span className="hidden xl:inline">Games</span></Link>
-            <div className="w-px h-4 bg-white/10 mx-2" />
+            <div className="w-px h-4 bg-[var(--glass-border)] mx-2" />
             <Link href="/exercises" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${isActive('/exercises') || pathname.startsWith('/exercise/') ? 'bg-white/10 text-white' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><Calculator className="w-3.5 h-3.5" /><span className="hidden xl:inline">Math Exercises</span></Link>
             <Link href="/practice" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${isActive('/practice') || isActive('/mastery') ? 'bg-white/10 text-white' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><Dices className="w-3.5 h-3.5" /><span className="hidden xl:inline">Practice</span></Link>
             <Link href="/ai-tutor" className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all ${isActive('/ai-tutor') ? 'bg-white/10 text-white' : 'text-[#737373] hover:text-white hover:bg-white/5'}`}><Brain className="w-3.5 h-3.5" /><span className="hidden xl:inline">AI Tutor</span></Link>
@@ -94,12 +94,12 @@ export default function Navigation() {
       </nav>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-[#060606]/95 backdrop-blur-lg pt-20 px-6 md:hidden" role="dialog" aria-label="Mobile navigation menu">
+        <div className="fixed inset-0 z-40 bg-[var(--body-bg)]/95 backdrop-blur-lg pt-20 px-6 md:hidden" role="dialog" aria-label="Mobile navigation menu">
           <div className="flex flex-col gap-2">
             <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium bg-[#3b82f6]/10 text-[#3b82f6] transition-all hover:bg-[#3b82f6]/20">
               <Home className="w-4 h-4" /><span>Home</span>
             </Link>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-[var(--subtle-border)] my-1" />
             {chapterList.map(ch => (
               <Link key={ch.id} href={`/chapter/${ch.id}`} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5">
                 <span style={{ color: chapterColors[ch.id] }}>{chapterIcons[ch.id]}</span><span>{ch.title}</span><span className="ml-auto text-xs text-[#737373]">{ch.subtitle}</span>
@@ -117,17 +117,17 @@ export default function Navigation() {
             <Link href="/voice-ai" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Radio className="w-4 h-4 text-[#ec4899]" /><span>Voice AI</span></Link>
             <Link href="/study-timer" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Timer className="w-4 h-4 text-[#3b82f6]" /><span>Study Timer</span></Link>
             <Link href="/achievements" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Trophy className="w-4 h-4 text-[#f59e0b]" /><span>Achievements</span></Link>
-            <div className="w-full h-px bg-white/10 my-2" />
+            <div className="w-full h-px bg-[var(--glass-border)] my-2" />
             <Link href="/exercises" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Calculator className="w-4 h-4 text-[#8b5cf6]" /><span>Math Exercises</span></Link>
             <Link href="/practice" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Dices className="w-4 h-4 text-[#ec4899]" /><span>Practice</span></Link>
             <Link href="/inspiration" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><Sparkles className="w-4 h-4 text-[#f59e0b]" /><span>Inspiration</span></Link>
             <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5"><LayoutDashboard className="w-4 h-4 text-[#737373]" /><span>Dashboard</span></Link>
-            <div className="w-full h-px bg-white/10 my-2" />
+            <div className="w-full h-px bg-[var(--glass-border)] my-2" />
             <button onClick={() => { toggleTheme(); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5 w-full text-left">
               {isDark ? <Sun className="w-4 h-4 text-[#f59e0b]" /> : <Moon className="w-4 h-4 text-[#8b5cf6]" />}
               <span>Theme: {theme === 'system' ? 'System' : isDark ? 'Dark' : 'Light'}</span>
             </button>
-            <div className="w-full h-px bg-white/10 my-2" />
+            <div className="w-full h-px bg-[var(--glass-border)] my-2" />
             {isAuthenticated ? (
               <button onClick={() => { logout(); setMobileOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all hover:bg-white/5 w-full text-left">
                 <LogOut className="w-4 h-4 text-[#ef4444]" /><span className="text-[#ef4444]">Sign Out ({user?.name || user?.username || 'User'})</span>
