@@ -13,7 +13,7 @@ export function securityHeaders(): MiddlewareHandler {
     c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     c.res.headers.set(
       "Permissions-Policy",
-      "camera=(), microphone=(), geolocation=(), payment=()",
+      "camera=(), microphone=(self), geolocation=(), payment=()",
     );
     c.res.headers.set(
       "Content-Security-Policy",
@@ -23,7 +23,7 @@ export function securityHeaders(): MiddlewareHandler {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https:",
-        "connect-src 'self'",
+        "connect-src 'self' https://integrate.api.nvidia.com https://generativelanguage.googleapis.com https://open.kimi.com",
         "frame-ancestors 'none'",
       ].join("; "),
     );
