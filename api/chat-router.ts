@@ -65,10 +65,10 @@ export const chatRouter = createRouter({
         content: input.content, isAi: 0,
       });
 
-      // 2. Try AI API (NVIDIA or Kimi) if configured
+      // 2. Try AI API (NVIDIA, Google AI, or Kimi) if configured
       let response = "";
       let usedAi = false;
-      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
 
       if (hasAiProvider) {
         try {

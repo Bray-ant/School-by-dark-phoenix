@@ -227,7 +227,7 @@ export const mathTutorRouter = createRouter({
     }))
     .mutation(async ({ input }) => {
       const detectedTopic = detectMathTopic(input.topic);
-      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
 
       if (hasAiProvider) {
         try {

@@ -107,7 +107,7 @@ async function callKimiWithFallback(
 ): Promise<string> {
   if (!userId) return fallback();
 
-  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+  const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
   if (!hasAiProvider) return fallback();
 
   try {
@@ -303,7 +303,7 @@ export const smartAiRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       const fallback = () => generateQuizFallback(input.topic, input.count, input.difficulty);
 
-      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
       if (!ctx.user?.id || !hasAiProvider) {
         return { quiz: fallback(), source: "local" };
       }
@@ -379,7 +379,7 @@ export const smartAiRouter = createRouter({
         return { plan: fallback(), source: "local" };
       }
 
-      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
       if (!hasAiProvider) return { plan: fallback(), source: "local" };
 
       try {
@@ -448,7 +448,7 @@ export const smartAiRouter = createRouter({
       conversationId: z.number().optional(),
     }))
     .mutation(async ({ input }) => {
-      const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
       if (!hasAiProvider) {
         return { error: "No AI provider configured (set NVIDIA_API_KEY or KIMI_API_KEY)." };
       }

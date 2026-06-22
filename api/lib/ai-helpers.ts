@@ -6,8 +6,8 @@ import { env } from "../lib/env";
 import { TRPCError } from "@trpc/server";
 
 /**
- * Calls the AI API (NVIDIA or Kimi), falling back to a local generator
- * if no provider is configured or the call fails.
+ * Calls the AI API (NVIDIA, Google AI, or Kimi), falling back to a local
+ * generator if no provider is configured or the call fails.
  */
 export async function callKimiWithFallback(
   userId: number | undefined,
@@ -18,7 +18,7 @@ export async function callKimiWithFallback(
 ): Promise<string> {
   if (!userId) return fallback();
 
-  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+  const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
   if (!hasAiProvider) return fallback();
 
   try {
@@ -72,7 +72,7 @@ export async function handleTutorMessage(opts: {
     content: opts.message,
   });
 
-  const hasAiProvider = env.nvidiaApiKey || env.kimiApiKey;
+  const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
   let response: string;
 
   if (hasAiProvider) {
@@ -101,7 +101,7 @@ export async function handleTutorMessage(opts: {
     }
   } else {
     response = opts.localFallback(opts.message)
-      + "\n\n*(Configure NVIDIA_API_KEY or KIMI_API_KEY to enable enhanced AI responses)*";
+      + "\n\n*(Configure NVIDIA_API_KEY, GOOGLE_AI_KEY, or KIMI_API_KEY to enable enhanced AI responses)*";
   }
 
   const [aiMsg] = await db.insert(aiMessages).values({
