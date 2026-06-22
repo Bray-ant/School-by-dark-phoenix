@@ -272,9 +272,88 @@ function getStudyPlanFallback(duration: number, level: string): object {
   };
 }
 
+// ─── Practice Exercise Generation ─────────────────────────
+
+const PRACTICE_GEN_PROMPT = `You are an expert mathematics problem generator. Generate a unique practice exercise.
+
+Respond in this EXACT JSON format (no markdown, no code fences):
+{
+  "problemText": "The problem statement with clear instructions",
+  "answer": "The final answer",
+  "solutionSteps": [
+    {"title": "Step title", "content": "Step explanation with working"},
+    {"title": "Next step", "content": "More detail"}
+  ],
+  "hints": ["Hint 1 (subtle)", "Hint 2 (more specific)", "Hint 3 (nearly the answer)"],
+  "estimatedTime": "3 min",
+  "verification": "How to verify the answer is correct"
+}
+
+Rules:
+- Use specific numerical values, not generic templates
+- Include 2-4 solution steps with clear mathematical working
+- Provide 2-3 progressive hints (from vague to specific)
+- Vary the problem structure — don't always use the same pattern
+- Difficulty 1-2: straightforward computation. 3-4: multi-step. 5-6: advanced. 7: research-level
+- Return ONLY valid JSON, no other text`;
+
 // ─── Router ───────────────────────────────────────────────
 
 export const smartAiRouter = createRouter({
+  // AI-powered practice exercise generator
+  generatePractice: publicQuery
+    .input(z.object({
+      topic: z.string().min(1),
+      difficulty: z.number().min(1).max(7).default(3),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const hasAiProvider = env.nvidiaApiKey || env.googleAiKey || env.kimiApiKey;
+      if (!ctx.user?.id || !hasAiProvider) {
+        return { exercise: null, source: "unavailable" as const };
+      }
+
+      try {
+        const response = await callKimiChat(
+          null,
+          [
+            { role: "system", content: PRACTICE_GEN_PROMPT },
+            { role: "user", content: `Generate a difficulty ${input.difficulty}/7 practice problem about: ${input.topic}. Return valid JSON only.` },
+          ],
+          { temperature: 0.9, max_tokens: 2048 }
+        );
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return { exercise: null, source: "parse_error" as const };
+
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          problemText?: string;
+          answer?: string;
+          solutionSteps?: { title: string; content: string }[];
+          hints?: string[];
+          estimatedTime?: string;
+          verification?: string;
+        };
+
+        if (!parsed.problemText || !parsed.answer) {
+          return { exercise: null, source: "parse_error" as const };
+        }
+
+        return {
+          exercise: {
+            problemText: parsed.problemText,
+            answer: parsed.answer,
+            solutionSteps: parsed.solutionSteps ?? [],
+            hints: parsed.hints ?? [],
+            estimatedTime: parsed.estimatedTime ?? "3 min",
+            verification: parsed.verification ?? "",
+          },
+          source: "ai" as const,
+        };
+      } catch (err) {
+        console.error("[generatePractice] AI generation failed:", err);
+        return { exercise: null, source: "error" as const };
+      }
+    }),
+
   // Generate a unique circuit problem
   generateProblem: publicQuery
     .input(z.object({
